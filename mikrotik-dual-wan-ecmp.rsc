@@ -312,6 +312,20 @@ add chain=forward action=drop comment="Drop: All Other Forward"
 add chain=prerouting protocol=tcp dst-port=8291 src-address-list=!Management action=drop comment="Drop: WinBox from Internet"
 add chain=prerouting protocol=tcp dst-port=22 src-address-list=!Management action=drop comment="Drop: SSH from Internet"
 
+# SYN flood protection
+add chain=prerouting in-interface-list=WAN protocol=tcp tcp-flags=syn connection-state=new \
+    limit=200,5:packet action=accept comment="SYN: Rate Limit"
+add chain=prerouting in-interface-list=WAN protocol=tcp tcp-flags=syn connection-state=new \
+    action=drop comment="SYN: Drop Excess"
+
+# Drop spoofed/bogon source IPs from WAN (not blocking 100.64/10 - CGNAT used by some ISPs)
+add chain=prerouting in-interface-list=WAN src-address=0.0.0.0/8 action=drop comment="Drop: Bogon 0.0.0.0/8"
+add chain=prerouting in-interface-list=WAN src-address=10.0.0.0/8 action=drop comment="Drop: Bogon RFC1918 10/8"
+add chain=prerouting in-interface-list=WAN src-address=172.16.0.0/12 action=drop comment="Drop: Bogon RFC1918 172.16/12"
+add chain=prerouting in-interface-list=WAN src-address=192.168.0.0/16 action=drop comment="Drop: Bogon RFC1918 192.168/16"
+add chain=prerouting in-interface-list=WAN src-address=127.0.0.0/8 action=drop comment="Drop: Bogon Loopback"
+add chain=prerouting in-interface-list=WAN src-address=224.0.0.0/4 action=drop comment="Drop: Bogon Multicast"
+
 # ==============================================================================
 # SERVICE HARDENING
 # ==============================================================================
@@ -329,6 +343,16 @@ set winbox address=$lLANSubnet disabled=no
 :do { /tool mac-server set allowed-interface-list=LAN } on-error={}
 :do { /tool mac-server mac-winbox set allowed-interface-list=LAN } on-error={}
 
+# Disable unnecessary services
+:do { /tool bandwidth-server set enabled=no } on-error={}
+:do { /ip proxy set enabled=no } on-error={}
+:do { /ip socks set enabled=no } on-error={}
+:do { /ip upnp set enabled=no } on-error={}
+:do { /tool romon set enabled=no } on-error={}
+
+# Neighbor discovery restricted to LAN only
+/ip neighbor discovery-settings set discover-interface-list=LAN
+
 # ==============================================================================
 # SYSTEM CONFIGURATION
 # ==============================================================================
@@ -345,6 +369,10 @@ set winbox address=$lLANSubnet disabled=no
 
 # Allow asymmetric routing for Dual-WAN
 /ip settings set rp-filter=loose
+
+# Connection tracking: reduce timeouts to free stale entries faster
+/ip firewall connection tracking
+set tcp-established-timeout=1h tcp-close-wait-timeout=10s udp-timeout=30s generic-timeout=5m
 
 # NTP
 /system ntp client set enabled=yes
@@ -459,4 +487,7 @@ add name=check-memory interval=1h start-time=startup on-event={
 :put "6. Test hostnames: ping raspberrypi.lan"
 :put ""
 :put ("Security: WinBox restricted to LAN (" . $lLANSubnet . ") only")
+:put ""
+:put "!! IMPORTANT: Change the default admin password !!"
+:put "   /user set admin password=YOUR-STRONG-PASSWORD"
 :put ""
