@@ -123,6 +123,8 @@ Modems Vivo (Askey, Mitrastar, etc.) bloqueiam o acesso às configurações avan
 Nas configurações avançadas (`192.168.15.1/padrao`):
 
 1. Vá em WAN Setting > WAN Interface e **desabilite** a conexão PPPoE (ip2, VLAN 600)
+
+   ![WAN Interface](assets/wan_interface.jpg)
 2. Vá em Bridging > Filtering (L2 Ingress Filtering)
 3. Encontre a porta LAN que vai conectar no MikroTik (ex: `eth0.4` = porta LAN4)
 4. Edite: Associated Bridge = `1(Internet WAN)`, VLAN ID = `600`, Adm.State = Enable
