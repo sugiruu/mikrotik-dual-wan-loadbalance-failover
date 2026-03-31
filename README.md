@@ -100,17 +100,61 @@ Scripts auxiliares para os passos 3 e 5:
 **Solução 2 -- Clonar MAC (pode funcionar)**:
 Clone o MAC da WAN do modem da Claro na interface WAN do MikroTik e depois coloque em bridge. Não faça isso se for usar a solução 1.
 
-### Vivo em bridge
+### Vivo em bridge (PPPoE)
 
-A Vivo **não usa DHCP** em bridge. Ela usa **PPPoE**. Quando você ativa bridge no modem da Vivo, ele para de discar e o MikroTik precisa fazer a autenticação PPPoE.
+A Vivo usa PPPoE, não DHCP. O modem precisa ser configurado pra passar o PPPoE por uma porta LAN específica pro MikroTik.
 
-Este script **não inclui PPPoE** -- ele assume DHCP em ambas as WANs. Para usar a Vivo em bridge, você precisa:
+#### Passo 1 -- Acessar a página avançada do modem
 
-1. Criar um PPPoE client na interface da Vivo
-2. Credenciais padrão: usuário `cliente@cliente`, senha `cliente` (pode variar por região)
-3. Adicionar a interface PPPoE na lista WAN do firewall
+Modems Vivo (Askey, Mitrastar, etc.) bloqueiam o acesso às configurações avançadas. Pra desbloquear:
 
-O MAC do primeiro dispositivo que conectar no modem Vivo fica "travado". Se trocar de equipamento, reinicie o modem ou clone o MAC.
+1. Desconecte a fibra óptica do modem
+2. Conecte um PC por cabo no modem
+3. Acesse `192.168.15.1/instalador` e logue com usuário `support` e a senha padrão (etiqueta embaixo do modem)
+4. Mude a região pra outra (se for VIVO2, mude pra VIVO1) e aplique -- o modem vai resetar
+5. Acesse `192.168.15.1/padrao` pra confirmar que funciona (não configure nada ainda)
+6. Volte em `192.168.15.1/instalador` e restaure a região original -- vai resetar de novo
+7. Agora acesse `192.168.15.1/padrao` com o usuário `support` e faça as configurações
+8. Desative o gerenciamento remoto da operadora: Manutenção > TR-069 Client > CWMP > Desativar
+9. Reconecte a fibra óptica
+
+#### Passo 2 -- Configurar bridge por porta no modem
+
+Nas configurações avançadas (`192.168.15.1/padrao`):
+
+1. Vá em WAN Setting > WAN Interface e **desabilite** a conexão PPPoE (ip2, VLAN 600)
+2. Vá em Bridging > Filtering (L2 Ingress Filtering)
+3. Encontre a porta LAN que vai conectar no MikroTik (ex: `eth0.4` = porta LAN4)
+4. Edite: Associated Bridge = `1(Internet WAN)`, VLAN ID = `600`, Adm.State = Enable
+5. Salve
+
+Isso faz a porta LAN4 receber os frames PPPoE direto da fibra. As outras portas e WiFi servem apenas pra gerenciar o modem -- a internet só funciona pelo MikroTik.
+
+#### Passo 3 -- Ativar PPPoE no MikroTik
+
+Conecte a ether1 do MikroTik na porta LAN4 do modem Vivo. Suba e importe:
+
+```
+/import vivo-pppoe.rsc
+```
+
+Credenciais padrão: `cliente@cliente` / `cliente` (pode variar por região).
+A VLAN muda dependendo da região: Vivo2 usa VLAN 600. Confira o ID da VLAN em WAN Setting > WAN Interface na página do modem.
+
+Verificação:
+```
+/interface pppoe-client print    # deve mostrar R (RUNNING)
+/ip route print where dst-address=0.0.0.0/0    # rota PPPoE ativa
+/tool ping 1.1.1.1 interface=pppoe-vivo count=3
+```
+
+Se o PPPoE não conectar, pode ser necessário clonar o MAC da WAN do modem Vivo na ether1 do MikroTik. O MAC da WAN está na etiqueta do modem ou em WAN Setting > WAN Interface. No MikroTik:
+
+```
+/interface ethernet set ether1 mac-address=XX:XX:XX:XX:XX:XX
+```
+
+Pra reverter tudo: `/import vivo-dhcp-rollback.rsc` e reabilite ip2 no modem.
 
 ## Regras bogon (importante)
 

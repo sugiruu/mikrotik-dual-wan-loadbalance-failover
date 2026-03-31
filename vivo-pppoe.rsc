@@ -29,7 +29,10 @@
 
 # Troca interface na WAN list
 :do { /interface list member remove [find where comment~"WAN1"] } on-error={}
-/interface list member add list=WAN interface=pppoe-vivo comment="WAN1 PPPoE (Vivo)"
+:do { /interface list member remove [find where interface=ether1 and list=WAN] } on-error={}
+:if ([:len [/interface list member find where interface=pppoe-vivo and list=WAN]] = 0) do={
+    /interface list member add list=WAN interface=pppoe-vivo comment="WAN1 PPPoE (Vivo)"
+}
 
 # Atualiza o monitor para pingar pela interface PPPoE
 /system scheduler set [find name="isp-monitor"] on-event={
