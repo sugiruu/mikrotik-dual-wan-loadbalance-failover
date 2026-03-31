@@ -35,8 +35,7 @@
 
 # Static DHCP Leases (MAC -> IP)
 :local lPiHoleMAC "e0:51:d8:67:87:38"
-:local lDesktopMAC "CC:28:AA:A4:0B:7D"
-:local lDesktopWiFiMAC "94:bb:43:0a:32:36"
+:local lDesktopMAC "94:bb:43:0a:32:36"
 :local lDesktopIP "192.168.100.10"
 :local lArcherMAC "28:ee:52:95:10:28"
 :local lArcherIP "192.168.100.3"
@@ -211,8 +210,7 @@ add address=$lLANSubnet gateway=$lLANGateway dns-server=$lDHCPDNS domain="lan" c
 /ip dhcp-server lease
 :do { remove [find where comment~"Static:"] } on-error={}
 add address=$lPiHoleAddress mac-address=$lPiHoleMAC server=lan-dhcp comment="Static: Pi-Hole"
-add address=$lDesktopIP mac-address=$lDesktopMAC server=lan-dhcp comment="Static: Desktop (Ethernet)"
-add address=$lDesktopIP mac-address=$lDesktopWiFiMAC server=lan-dhcp comment="Static: Desktop (WiFi)"
+add address=$lDesktopIP mac-address=$lDesktopMAC server=lan-dhcp comment="Static: Desktop"
 add address=$lArcherIP mac-address=$lArcherMAC server=lan-dhcp comment="Static: ArcherAX10"
 add address=$lClaroTVIP mac-address=$lClaroTVMAC server=lan-dhcp comment="Static: Claro TV Box"
 
