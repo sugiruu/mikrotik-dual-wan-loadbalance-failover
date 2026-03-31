@@ -365,8 +365,20 @@ add name=isp-monitor interval=1m start-time=startup on-event={
     :global EmailEnable
     :global EmailTo
 
-    :local wan1Active ([:len [/ip route find where comment~"Vivo" and active]] > 0)
-    :local wan2Active ([:len [/ip route find where comment~"Claro" and active]] > 0)
+    :local wan1RouteActive ([:len [/ip route find where comment~"Vivo" and active]] > 0)
+    :local wan2RouteActive ([:len [/ip route find where comment~"Claro" and active]] > 0)
+
+    :local wan1PingOk false
+    :if ($wan1RouteActive) do={
+        :set wan1PingOk ([/ping 1.1.1.1 interface=ether1 count=2] > 0)
+    }
+    :local wan2PingOk false
+    :if ($wan2RouteActive) do={
+        :set wan2PingOk ([/ping 1.1.1.1 interface=ether2 count=2] > 0)
+    }
+
+    :local wan1Active ($wan1RouteActive && $wan1PingOk)
+    :local wan2Active ($wan2RouteActive && $wan2PingOk)
 
     :if (!$wan1Active && $WAN1Status = "up") do={
         :set WAN1Status "down"
