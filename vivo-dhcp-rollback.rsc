@@ -13,6 +13,9 @@
 # Remove VLAN
 :do { /interface vlan remove [find where name="vlan600-vivo"] } on-error={}
 
+# Desabilita regra bogon 192.168 (DHCP pode receber IP privado do modem em modo roteador)
+:do { /ip firewall raw disable [find where comment~"192.168"] } on-error={}
+
 # Remove entrada PPPoE da WAN list
 :do { /interface list member remove [find where comment~"WAN1 PPPoE"] } on-error={}
 

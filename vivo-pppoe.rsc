@@ -27,6 +27,9 @@
 :do { /interface pppoe-client remove [find where name="pppoe-vivo"] } on-error={}
 /interface pppoe-client add interface=vlan600-vivo name=pppoe-vivo user=$vivoUser password=$vivoPass add-default-route=yes default-route-distance=1 use-peer-dns=no disabled=no comment="PPPoE: Vivo"
 
+# Habilita regra bogon 192.168 (PPPoE usa IP publico, nao precisa mais permitir IP privado na WAN)
+:do { /ip firewall raw enable [find where comment~"192.168"] } on-error={}
+
 # Troca interface na WAN list
 :do { /interface list member remove [find where comment~"WAN1"] } on-error={}
 :do { /interface list member remove [find where interface=ether1 and list=WAN] } on-error={}

@@ -299,7 +299,7 @@ add chain=prerouting in-interface-list=WAN protocol=tcp tcp-flags=syn action=dro
 add chain=prerouting in-interface-list=WAN src-address=0.0.0.0/8 action=drop comment="Drop: Bogon 0.0.0.0/8"
 add chain=prerouting in-interface-list=WAN src-address=10.0.0.0/8 action=drop comment="Drop: Bogon RFC1918 10/8"
 add chain=prerouting in-interface-list=WAN src-address=172.16.0.0/12 action=drop comment="Drop: Bogon RFC1918 172.16/12"
-add chain=prerouting in-interface-list=WAN src-address=192.168.0.0/16 action=drop comment="Drop: Bogon RFC1918 192.168/16"
+add chain=prerouting in-interface-list=WAN src-address=192.168.0.0/16 action=drop disabled=yes comment="Drop: Bogon RFC1918 192.168/16"
 add chain=prerouting in-interface-list=WAN src-address=127.0.0.0/8 action=drop comment="Drop: Bogon Loopback"
 add chain=prerouting in-interface-list=WAN src-address=224.0.0.0/4 action=drop comment="Drop: Bogon Multicast"
 
