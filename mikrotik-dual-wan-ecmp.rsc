@@ -310,7 +310,7 @@ add chain=prerouting in-interface-list=WAN src-address=224.0.0.0/4 action=drop c
 set telnet disabled=yes
 set ftp disabled=yes
 set www address=$lLANSubnet disabled=no
-set www-ssl disabled=yes
+set www-ssl address=$lLANSubnet disabled=no
 set ssh address=$lLANSubnet disabled=no
 set api disabled=yes
 set api-ssl disabled=yes
@@ -356,14 +356,24 @@ add address=time.nist.gov
 
 :global WAN1Status "up"
 :global WAN2Status "up"
+:global WAN1DownCount 0
+:global WAN2DownCount 0
+:global WAN1UpCount 0
+:global WAN2UpCount 0
 
 /system scheduler
 :do { remove [find name="isp-monitor"] } on-error={}
 add name=isp-monitor interval=1m start-time=startup on-event={
     :global WAN1Status
     :global WAN2Status
+    :global WAN1DownCount
+    :global WAN2DownCount
+    :global WAN1UpCount
+    :global WAN2UpCount
     :global EmailEnable
     :global EmailTo
+
+    :local debounce 3
 
     :local wan1RouteActive ([:len [/ip route find where comment~"Vivo" and active]] > 0)
     :local wan2RouteActive ([:len [/ip route find where comment~"Claro" and active]] > 0)
@@ -380,33 +390,49 @@ add name=isp-monitor interval=1m start-time=startup on-event={
     :local wan1Active ($wan1RouteActive && $wan1PingOk)
     :local wan2Active ($wan2RouteActive && $wan2PingOk)
 
-    :if (!$wan1Active && $WAN1Status = "up") do={
-        :set WAN1Status "down"
-        :log error "[MONITOR] Vivo DOWN"
-        :if ($EmailEnable = true) do={
-            :do { /tool e-mail send to=$EmailTo subject="[DualWAN] Vivo DOWN" body="Vivo caiu. Trafego redirecionado para Claro." } on-error={}
+    # --- WAN1 (Vivo) ---
+    :if (!$wan1Active) do={
+        :set WAN1DownCount ($WAN1DownCount + 1)
+        :set WAN1UpCount 0
+        :if ($WAN1DownCount = $debounce && $WAN1Status = "up") do={
+            :set WAN1Status "down"
+            :log error "[MONITOR] Vivo DOWN"
+            :if ($EmailEnable = true) do={
+                :do { /tool e-mail send to=$EmailTo subject="[DualWAN] Vivo DOWN" body="Vivo caiu. Trafego redirecionado para Claro." } on-error={}
+            }
         }
-    }
-    :if ($wan1Active && $WAN1Status = "down") do={
-        :set WAN1Status "up"
-        :log info "[MONITOR] Vivo RECOVERED"
-        :if ($EmailEnable = true) do={
-            :do { /tool e-mail send to=$EmailTo subject="[DualWAN] Vivo voltou" body="Vivo voltou ao normal." } on-error={}
+    } else={
+        :set WAN1UpCount ($WAN1UpCount + 1)
+        :set WAN1DownCount 0
+        :if ($WAN1UpCount = $debounce && $WAN1Status = "down") do={
+            :set WAN1Status "up"
+            :log info "[MONITOR] Vivo RECOVERED"
+            :if ($EmailEnable = true) do={
+                :do { /tool e-mail send to=$EmailTo subject="[DualWAN] Vivo voltou" body="Vivo voltou ao normal." } on-error={}
+            }
         }
     }
 
-    :if (!$wan2Active && $WAN2Status = "up") do={
-        :set WAN2Status "down"
-        :log error "[MONITOR] Claro DOWN"
-        :if ($EmailEnable = true) do={
-            :do { /tool e-mail send to=$EmailTo subject="[DualWAN] Claro DOWN" body="Claro caiu. Trafego redirecionado para Vivo." } on-error={}
+    # --- WAN2 (Claro) ---
+    :if (!$wan2Active) do={
+        :set WAN2DownCount ($WAN2DownCount + 1)
+        :set WAN2UpCount 0
+        :if ($WAN2DownCount = $debounce && $WAN2Status = "up") do={
+            :set WAN2Status "down"
+            :log error "[MONITOR] Claro DOWN"
+            :if ($EmailEnable = true) do={
+                :do { /tool e-mail send to=$EmailTo subject="[DualWAN] Claro DOWN" body="Claro caiu. Trafego redirecionado para Vivo." } on-error={}
+            }
         }
-    }
-    :if ($wan2Active && $WAN2Status = "down") do={
-        :set WAN2Status "up"
-        :log info "[MONITOR] Claro RECOVERED"
-        :if ($EmailEnable = true) do={
-            :do { /tool e-mail send to=$EmailTo subject="[DualWAN] Claro voltou" body="Claro voltou ao normal." } on-error={}
+    } else={
+        :set WAN2UpCount ($WAN2UpCount + 1)
+        :set WAN2DownCount 0
+        :if ($WAN2UpCount = $debounce && $WAN2Status = "down") do={
+            :set WAN2Status "up"
+            :log info "[MONITOR] Claro RECOVERED"
+            :if ($EmailEnable = true) do={
+                :do { /tool e-mail send to=$EmailTo subject="[DualWAN] Claro voltou" body="Claro voltou ao normal." } on-error={}
+            }
         }
     }
 }
