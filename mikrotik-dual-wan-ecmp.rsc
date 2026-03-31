@@ -35,7 +35,8 @@
 
 # Static DHCP Leases (MAC -> IP)
 :local lPiHoleMAC "e0:51:d8:67:87:38"
-:local lDesktopMAC "94:bb:43:0a:32:36"
+:local lDesktopMAC "CC:28:AA:A4:0B:7D"
+:local lDesktopWiFiMAC "94:bb:43:0a:32:36"
 :local lDesktopIP "192.168.100.10"
 :local lArcherMAC "28:ee:52:95:10:28"
 :local lArcherIP "192.168.100.3"
@@ -88,14 +89,21 @@
 :do { /ip dhcp-server network remove [/ip dhcp-server network find] } on-error={}
 :do { /ip pool remove [/ip pool find name="lan-dhcp-pool"] } on-error={}
 
-# Remove DNS static entries
-:do { /ip dns static remove [/ip dns static find where comment~"LAN:"] } on-error={}
+# Remove DNS static entries (ours + defconf)
+:do { /ip dns static remove [/ip dns static find] } on-error={}
 
 # Remove address lists
-:do { /ip firewall address-list remove [/ip firewall address-list find where list="LocalTraffic" || list="Management" || list="MonitorIPs" || list="ForceISP2"] } on-error={}
+:do { /ip firewall address-list remove [/ip firewall address-list find] } on-error={}
 
-# Remove bridge
+# Remove bridges (ours + defconf "bridge")
 :do { /interface bridge remove [/interface bridge find name=$lLANInterface] } on-error={}
+:do { /interface bridge remove [/interface bridge find name="bridge"] } on-error={}
+
+# Remove defconf interface lists and members
+:do { /interface list member remove [/interface list member find] } on-error={}
+
+# Remove schedulers (ours)
+:do { /system scheduler remove [/system scheduler find where name="isp-monitor" || name="check-memory" || name="steering-update"] } on-error={}
 
 :delay 2s
 
@@ -161,40 +169,25 @@ add address=$lLANAddress interface=$lLANInterface comment="LAN"
 # DHCP CLIENT (WAN1 + WAN2)
 # ==============================================================================
 # ISP routers in bridge mode deliver WAN IPs via DHCP.
-# Each client script creates ECMP routes with check-gateway=ping for failover,
-# plus steering routes in the ForceClaro table for Claro TV Box.
+# add-default-route=yes creates ECMP routes automatically (same distance = load balance).
+# check-gateway=ping provides automatic failover (~10s detection).
+# Scripts only handle ForceClaro steering routes.
 
 /ip dhcp-client
 
-add interface=$lWAN1Interface add-default-route=no use-peer-dns=no use-peer-ntp=no \
-    comment="DHCP: Vivo (WAN1)" disabled=no \
-    script=":global WAN1Gateway; \
-        :local newGW \$\"lease-gateway\"; \
-        :if ([:len \$newGW] > 0) do={ \
-            :set WAN1Gateway \$newGW; \
-            :log info (\"[DHCP] Vivo gateway: \" . \$newGW); \
-            :do { /ip route remove [find where comment=\"ECMP: Vivo\"] } on-error={}; \
-            /ip route add dst-address=0.0.0.0/0 gateway=\$newGW distance=1 \
-                check-gateway=ping comment=\"ECMP: Vivo\"; \
-            :do { /ip route remove [find where comment=\"Steer: Vivo Fallback\"] } on-error={}; \
-            /ip route add dst-address=0.0.0.0/0 gateway=\$newGW routing-table=ForceClaro \
-                distance=2 comment=\"Steer: Vivo Fallback\"; \
-        }"
+add interface=$lWAN1Interface add-default-route=yes default-route-distance=1 check-gateway=ping use-peer-dns=no use-peer-ntp=no comment="DHCP: Vivo (WAN1)" disabled=no script=":local newGW \$\"lease-gateway\"
+    :if ([:len \$newGW] > 0) do={
+        :do { /ip route remove [find where comment=\"Steer: Vivo Fallback\"] } on-error={}
+        /ip route add dst-address=0.0.0.0/0 gateway=\$newGW routing-table=ForceClaro distance=2 comment=\"Steer: Vivo Fallback\"
+        :log info (\"[DHCP] Vivo gateway: \" . \$newGW)
+    }"
 
-add interface=$lWAN2Interface add-default-route=no use-peer-dns=no use-peer-ntp=no \
-    comment="DHCP: Claro (WAN2)" disabled=no \
-    script=":global WAN2Gateway; \
-        :local newGW \$\"lease-gateway\"; \
-        :if ([:len \$newGW] > 0) do={ \
-            :set WAN2Gateway \$newGW; \
-            :log info (\"[DHCP] Claro gateway: \" . \$newGW); \
-            :do { /ip route remove [find where comment=\"ECMP: Claro\"] } on-error={}; \
-            /ip route add dst-address=0.0.0.0/0 gateway=\$newGW distance=1 \
-                check-gateway=ping comment=\"ECMP: Claro\"; \
-            :do { /ip route remove [find where comment=\"Steer: Claro Primary\"] } on-error={}; \
-            /ip route add dst-address=0.0.0.0/0 gateway=\$newGW routing-table=ForceClaro \
-                distance=1 comment=\"Steer: Claro Primary\"; \
-        }"
+add interface=$lWAN2Interface add-default-route=yes default-route-distance=1 check-gateway=ping use-peer-dns=no use-peer-ntp=no comment="DHCP: Claro (WAN2)" disabled=no script=":local newGW \$\"lease-gateway\"
+    :if ([:len \$newGW] > 0) do={
+        :do { /ip route remove [find where comment=\"Steer: Claro Primary\"] } on-error={}
+        /ip route add dst-address=0.0.0.0/0 gateway=\$newGW routing-table=ForceClaro distance=1 comment=\"Steer: Claro Primary\"
+        :log info (\"[DHCP] Claro gateway: \" . \$newGW)
+    }"
 
 # ==============================================================================
 # DHCP SERVER
@@ -209,7 +202,8 @@ add name=lan-dhcp interface=$lLANInterface address-pool=lan-dhcp-pool disabled=n
 
 /ip dhcp-server network
 :do { remove [find address=$lLANSubnet] } on-error={}
-add address=$lLANSubnet gateway=$lLANGateway dns-server=($lPiHoleAddress . ",1.1.1.1") domain="lan" comment="LAN Network (DNS: Pi-Hole + Cloudflare)"
+:local lDHCPDNS ($lPiHoleAddress . ",1.1.1.1")
+add address=$lLANSubnet gateway=$lLANGateway dns-server=$lDHCPDNS domain="lan" comment="LAN Network (DNS: Pi-Hole + Cloudflare)"
 
 # ==============================================================================
 # STATIC DHCP LEASES
@@ -217,7 +211,8 @@ add address=$lLANSubnet gateway=$lLANGateway dns-server=($lPiHoleAddress . ",1.1
 /ip dhcp-server lease
 :do { remove [find where comment~"Static:"] } on-error={}
 add address=$lPiHoleAddress mac-address=$lPiHoleMAC server=lan-dhcp comment="Static: Pi-Hole"
-add address=$lDesktopIP mac-address=$lDesktopMAC server=lan-dhcp comment="Static: Desktop"
+add address=$lDesktopIP mac-address=$lDesktopMAC server=lan-dhcp comment="Static: Desktop (Ethernet)"
+add address=$lDesktopIP mac-address=$lDesktopWiFiMAC server=lan-dhcp comment="Static: Desktop (WiFi)"
 add address=$lArcherIP mac-address=$lArcherMAC server=lan-dhcp comment="Static: ArcherAX10"
 add address=$lClaroTVIP mac-address=$lClaroTVMAC server=lan-dhcp comment="Static: Claro TV Box"
 
@@ -245,15 +240,14 @@ add name="clarotvbox.lan" address=$lClaroTVIP comment="LAN: Claro TV Box"
 # No mangle needed - routing rules operate at FIB level.
 /routing rule
 :do { remove [find where comment~"Steer:"] } on-error={}
-add src-address=($lClaroTVIP . "/32") action=lookup-only-in-table table=ForceClaro \
-    comment="Steer: Claro TV Box -> Claro"
+:local lClaroTVCIDR ($lClaroTVIP . "/32")
+add src-address=$lClaroTVCIDR action=lookup-only-in-table table=ForceClaro comment="Steer: Claro TV Box -> Claro"
 
 # ==============================================================================
 # MANGLE (MSS Clamping Only)
 # ==============================================================================
 /ip firewall mangle
-add chain=forward protocol=tcp tcp-flags=syn action=change-mss new-mss=1400 \
-    passthrough=yes comment="Clamp MSS to 1400 (Safe for PPPoE/LTE/VPN)"
+add chain=forward protocol=tcp tcp-flags=syn action=change-mss new-mss=1400 passthrough=yes comment="Clamp MSS to 1400 (Safe for PPPoE/LTE/VPN)"
 
 # ==============================================================================
 # NAT
@@ -289,18 +283,14 @@ add chain=input in-interface-list=WAN action=drop comment="Drop: WAN Input"
 add chain=forward connection-state=invalid action=drop comment="Drop: Invalid Forward"
 
 # FastTrack: Accelerate established connections (bypasses mangle/filter for speed)
-add chain=forward connection-state=established,related action=fasttrack-connection \
-    comment="FastTrack: Established/Related"
-add chain=forward connection-state=established,related action=accept \
-    comment="Accept: Established Forward"
+add chain=forward connection-state=established,related action=fasttrack-connection comment="FastTrack: Established/Related"
+add chain=forward connection-state=established,related action=accept comment="Accept: Established Forward"
 
 # LAN -> WAN (new connections)
-add chain=forward in-interface=$lLANInterface connection-state=new action=accept \
-    comment="Accept: LAN New Forward"
+add chain=forward in-interface=$lLANInterface connection-state=new action=accept comment="Accept: LAN New Forward"
 
 # WAN -> LAN (return traffic only)
-add chain=forward in-interface-list=WAN out-interface=$lLANInterface \
-    connection-state=established,related action=accept comment="Accept: WAN Return"
+add chain=forward in-interface-list=WAN out-interface=$lLANInterface connection-state=established,related action=accept comment="Accept: WAN Return"
 
 # Default deny
 add chain=forward action=drop comment="Drop: All Other Forward"
@@ -313,10 +303,8 @@ add chain=prerouting protocol=tcp dst-port=8291 src-address-list=!Management act
 add chain=prerouting protocol=tcp dst-port=22 src-address-list=!Management action=drop comment="Drop: SSH from Internet"
 
 # SYN flood protection
-add chain=prerouting in-interface-list=WAN protocol=tcp tcp-flags=syn connection-state=new \
-    limit=200,5:packet action=accept comment="SYN: Rate Limit"
-add chain=prerouting in-interface-list=WAN protocol=tcp tcp-flags=syn connection-state=new \
-    action=drop comment="SYN: Drop Excess"
+add chain=prerouting in-interface-list=WAN protocol=tcp tcp-flags=syn limit=200,5:packet action=accept comment="SYN: Rate Limit"
+add chain=prerouting in-interface-list=WAN protocol=tcp tcp-flags=syn action=drop comment="SYN: Drop Excess"
 
 # Drop spoofed/bogon source IPs from WAN (not blocking 100.64/10 - CGNAT used by some ISPs)
 add chain=prerouting in-interface-list=WAN src-address=0.0.0.0/8 action=drop comment="Drop: Bogon 0.0.0.0/8"
@@ -334,7 +322,7 @@ set telnet disabled=yes
 set ftp disabled=yes
 set www address=$lLANSubnet disabled=no
 set www-ssl disabled=yes
-set ssh disabled=yes
+set ssh address=$lLANSubnet disabled=no
 set api disabled=yes
 set api-ssl disabled=yes
 set winbox address=$lLANSubnet disabled=no
