@@ -1,233 +1,129 @@
-# MikroTik Dual WAN Load Balancing + Failover | RouterOS v7
+# MikroTik Dual WAN - ECMP + FastTrack
 
-[![MikroTik](https://img.shields.io/badge/MikroTik-RouterOS%20v7-blue)](https://mikrotik.com)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+Script para RouterOS v7 que configura duas conexões de internet com load balancing e failover automático.
 
-MikroTik RouterOS v7 configurations for dual WAN load balancing with automatic failover. Two approaches are included -- pick the one that fits your setup:
+Testado com **Vivo + Claro** no Brasil, mas funciona com qualquer combinação de ISPs que entregue IP via DHCP (modo roteador ou bridge).
 
-| Script | Method | FastTrack | Throughput (hEX S) | Use when... |
-|--------|--------|-----------|-------------------|-------------|
-| [`mikrotik-dual-wan-ecmp.rsc`](#ecmp--fasttrack) | ECMP + FastTrack | Yes | ~900 Mbps | You want max speed and simplicity |
-| [`mikrotik-dual-wan.rsc`](#pcc-load-balancing) | PCC + Mangle | No | ~300-400 Mbps | You need custom load balance ratios |
+## O que faz
 
-**Requires**: RouterOS v7.20+, 2 WAN ports + 3 LAN ports minimum, Winbox or SSH access.
+- **Load balancing**: distribui conexões entre as duas WANs usando ECMP (Equal-Cost Multi-Path)
+- **FastTrack**: conexões estabelecidas são aceleradas pelo hardware, sem passar pelo firewall (~900Mbps no hEX S)
+- **Failover**: se um ISP cair, o tráfego vai automaticamente pro outro em ~10 segundos (via `check-gateway=ping`)
+- **Traffic steering**: força dispositivos específicos (ex: TV Box) a usar um ISP, com fallback pro outro
+- **Firewall**: bloqueia acesso externo, rate limit de ICMP e SYN, proteção contra IP spoofing
+- **DHCP server**: com suporte a leases estáticos e hostnames `.lan`
+- **Monitor**: loga mudanças de estado dos ISPs, opcionalmente envia email
 
-Tested on: RB760iGS (hEX S), RB750Gr3, E50UG
+## Requisitos
 
----
+- MikroTik com **RouterOS v7.20+**
+- 5 portas ethernet (2 WAN + 3 LAN) ou mais
+- Winbox, WebFig ou SSH para acessar o router
 
-## ECMP + FastTrack
+Testado em: hEX S (RB760iGS), RB750Gr3
 
-Uses Equal-Cost Multi-Path routing with FastTrack. Failover is native via `check-gateway=ping` -- no scheduler scripts needed. This is the simpler and faster option.
+## Como usar
 
-**What it does:**
-- Two default routes (same distance) -- the kernel distributes flows across both ISPs
-- FastTrack accelerates established connections, bypassing firewall for near wire-speed
-- `check-gateway=ping` detects a dead ISP in ~10s and shifts all traffic automatically
-- Supports DHCP on WAN interfaces (for ISP routers in bridge mode)
-- Traffic steering: force specific devices to a specific ISP (with fallback)
-- Pi-Hole DNS support, static DHCP leases, `.lan` hostnames
-- ISP state monitoring with optional email alerts
-- Firewall hardening, service lockdown, IPv6 disabled
+1. Baixe o `mikrotik-dual-wan-ecmp.rsc`
+2. Abra o arquivo e edite as variáveis no topo (interfaces, IPs, MACs, timezone)
+3. Remova as seções marcadas com `[OPCIONAL]` que não precisa
+4. Suba o arquivo no router (Winbox > Files > arrastar) e importe:
 
-### Quick Start
-
-**1. Download and edit variables:**
-
-```bash
-wget https://raw.githubusercontent.com/sugiruu/mikrotik-dual-wan-loadbalance-failover/main/mikrotik-dual-wan-ecmp.rsc
 ```
-
-Open the file and set your interfaces, IPs, MAC addresses, and timezone at the top.
-
-**2. Upload and import:**
-
-> [!WARNING]
-> This script **resets your router config**. Be physically connected -- don't run this over VPN or remote tunnel.
-
-```routeros
 /import mikrotik-dual-wan-ecmp.rsc
 ```
 
-**3. Verify:**
+> **CUIDADO**: o script reseta toda a configuração do router. Esteja conectado fisicamente (não via VPN/remoto). Faça backup antes: `/export file=backup`
 
-```routeros
-/ip dhcp-client print detail                           # WAN IPs from ISPs
-/ip route print where dst-address=0.0.0.0/0            # Two ECMP routes, both active
-/ip firewall filter print stats where comment~"FastTrack"  # FastTrack processing traffic
-/log print follow where message~"MONITOR"              # ISP state changes
-```
-
-### How it works
+5. Depois de importar, troque a senha admin:
 
 ```
-Client -> MikroTik -> ECMP hash (src + dst + port)
-                      |-- Flow A -> ISP1
-                      |-- Flow B -> ISP2
-                      (FastTrack kicks in after connection is established)
+/user set admin password=SUA-SENHA-FORTE
 ```
 
-Each flow (unique src+dst+port combo) sticks to one ISP. If an ISP goes down, `check-gateway=ping` deactivates that route and all traffic goes through the surviving one.
-
-### Traffic steering
-
-You can force specific devices to always use one ISP. The ECMP script includes an example: Claro TV Box is forced to Claro with automatic fallback to Vivo.
-
-This works via a routing rule + a dedicated routing table -- no mangle rules needed:
-
-```routeros
-/routing rule
-add src-address=192.168.100.20/32 action=lookup-only-in-table table=ForceClaro
-```
-
-The `ForceClaro` table has Claro at distance 1 and Vivo at distance 2. If Claro goes down, the device automatically fails over.
-
----
-
-## PCC Load Balancing
-
-Uses Per Connection Classifier with mangle rules. More control, more complexity, and no FastTrack (every packet hits the CPU).
-
-> **Throughput note**: PCC disables FastTrack. On a hEX S, expect ~300-400 Mbps. For 500+ Mbps, consider RB5009 or RB4011.
-
-**What it does:**
-- PCC distributes connections across WANs with configurable ratio (1:1, 2:1, 3:1, etc.)
-- Dual-IP failover monitoring -- pings two IPs per ISP, only triggers if both fail
-- Connection cleanup on failover (kills stuck connections for faster recovery)
-- Cross-ISP failover with failsafe routes
-- Tiered email alerts (1h, 6h, daily reminders, recovery)
-- Self-healing startup logic for v7 stability
-
-### Quick Start
-
-**1. Download and edit variables:**
-
-```bash
-wget https://raw.githubusercontent.com/sugiruu/mikrotik-dual-wan-loadbalance-failover/main/mikrotik-dual-wan.rsc
-```
-
-Set your WAN/LAN IPs, interfaces, gateways, monitor IPs, and email config.
-
-**2. Upload and import:**
-
-> [!WARNING]
-> This script **resets your router config**. Be physically connected -- don't run this over VPN or remote tunnel.
-
-```routeros
-/import mikrotik-dual-wan.rsc
-/system reboot
-```
-
-**3. Verify:**
-
-```routeros
-/ip route print detail where dst-address=0.0.0.0/0     # Routes active
-/system scheduler print detail where name=dual-ip-failover  # Scheduler running
-/log print follow where message~"FAILOVER"              # Failover events
-/ip firewall connection print where connection-mark~"ISP"   # PCC distribution
-```
-
-### How it works
+## Verificação
 
 ```
-Client -> MikroTik -> PCC Classifier (both-addresses-and-ports hash)
-                      |-- Hash 0..N -> ISP1
-                      |-- Hash N+1..M -> ISP2
+# DHCP pegou IP dos ISPs?
+/ip dhcp-client print
+
+# Duas rotas ECMP ativas?
+/ip route print where dst-address=0.0.0.0/0
+
+# FastTrack processando tráfego?
+/ip firewall filter print stats where comment~"FastTrack"
+
+# Log do monitor
+/log print follow where message~"MONITOR"
 ```
 
-Each new connection gets classified once and sticks to that ISP for its lifetime. A scheduler runs every 10 seconds, pinging monitor IPs through each WAN. If both monitors fail for an ISP, it disables routes and PCC rules, killing stuck connections.
+## Testar failover
 
-### Customization (PCC)
+Puxe o cabo de uma WAN. Em ~10 segundos a rota desativa e o tráfego vai pela outra. Reconecte e a rota volta automaticamente.
 
-**Load balance ratio** -- favor the faster ISP:
-```routeros
-:local lLBRatio1 3  # ISP1 gets 75%
-:local lLBRatio2 1  # ISP2 gets 25%
+## Seções opcionais
+
+O script tem seções marcadas com `[OPCIONAL]` que você pode remover:
+
+| Seção | O que faz | Quando remover |
+|-------|-----------|----------------|
+| DHCP Leases Estáticos | IPs fixos por MAC | Se não precisa de IP fixo pra nenhum dispositivo |
+| DNS Hostnames | Nomes .lan (ex: `ping meupc.lan`) | Se não quer acessar dispositivos por nome |
+| Traffic Steering | Força dispositivo a usar um ISP | Se não precisa direcionar tráfego |
+| Email | Notificações de queda/retorno | Se não quer receber alertas |
+| Monitor de ISP | Log de mudanças de estado | Se não quer monitoramento |
+| Monitor de Memória | Alerta de memória alta | Se não quer monitoramento |
+
+## Bridge mode
+
+O script assume que ambos os ISPs entregam IP via DHCP. Isso funciona quando:
+- Os modems estão em **modo roteador** (double NAT, funciona normal pra uso residencial)
+- A **Claro** está em bridge (entrega DHCP/CGNAT direto)
+
+Se você não precisa de bridge, pode usar os modems em modo roteador sem problemas.
+
+### Claro em bridge
+
+Claro pode não reconhecer o MAC do seu roteador e não entregar o IPv4. Você vai notar que só o IPv6 funciona e o DHCP fica em `requesting` pra sempre.
+
+**Solução 1 -- IP estático temporário (funciona com certeza)**:
+1. Antes de ativar bridge, entre no modem e anote: IP público, gateway e máscara (tela Status > WAN)
+2. Coloque o modem em bridge
+3. Configure a WAN do MikroTik em modo estático com os dados anotados -- a internet vai funcionar
+4. Depois de um tempo você vai perder a internet
+5. Troque a WAN do MikroTik de volta pra DHCP -- a partir daí o IPv4 volta a funcionar normalmente
+
+Scripts auxiliares para os passos 3 e 5:
+- `claro-static-restore.rsc` -- configura o IP estático no MikroTik (passo 3)
+- `claro-dhcp-rollback.rsc` -- remove o estático e reativa DHCP (passo 5)
+
+**Solução 2 -- Clonar MAC (pode funcionar)**:
+Clone o MAC da WAN do modem da Claro na interface WAN do MikroTik e depois coloque em bridge. Não faça isso se for usar a solução 1.
+
+### Vivo em bridge
+
+A Vivo **não usa DHCP** em bridge. Ela usa **PPPoE**. Quando você ativa bridge no modem da Vivo, ele para de discar e o MikroTik precisa fazer a autenticação PPPoE.
+
+Este script **não inclui PPPoE** -- ele assume DHCP em ambas as WANs. Para usar a Vivo em bridge, você precisa:
+
+1. Criar um PPPoE client na interface da Vivo
+2. Credenciais padrão: usuário `cliente@cliente`, senha `cliente` (pode variar por região)
+3. Adicionar a interface PPPoE na lista WAN do firewall
+
+O MAC do primeiro dispositivo que conectar no modem Vivo fica "travado". Se trocar de equipamento, reinicie o modem ou clone o MAC.
+
+## Regras bogon (importante)
+
+O firewall bloqueia IPs privados vindos da WAN (proteção contra spoofing). Se seu ISP entrega IP privado (ex: 192.168.x.x em modo roteador), desabilite a regra correspondente:
+
+```
+/ip firewall raw disable [find where comment~"192.168"]
 ```
 
-**Failover sensitivity**:
-```routeros
-:local lFailureThreshold 2  # Consecutive failures before DOWN (default: 2 = 20s)
-```
+## Licença
 
-**Preferred ISP**:
-```routeros
-:local lPreferredISP "ISP1"  # or "ISP2"
-```
+MIT
 
-**Email alerts** (uses Gmail SMTP by default):
-```routeros
-:local lEmailEnable true
-:local lEmailAddress "your-email@gmail.com"
-:local lEmailPassword "your-app-password"
-```
+## Créditos
 
----
-
-## Performance
-
-Both scripts will show combined bandwidth on multi-connection speed tests:
-
-| ISP1 | ISP2 | Combined |
-|------|------|----------|
-| 500 Mbps | 100 Mbps | ~600 Mbps |
-| 300 Mbps | 300 Mbps | ~600 Mbps |
-
-Single-connection tests (like a single download) will only use one ISP -- that's expected.
-
-**Failover timing:**
-- ECMP: ~10 seconds (check-gateway native)
-- PCC: ~20 seconds (scheduler-based)
-
-**Works well with**: browsing, streaming, downloads, gaming.
-**Brief interruption on failover**: VoIP calls, live streams, long SSH sessions.
-
----
-
-## Security
-
-Both scripts include:
-- Firewall blocks all WAN-to-router traffic
-- WinBox and WebFig restricted to LAN subnet only
-- ICMP rate limiting
-- Invalid connection dropping
-- Telnet, FTP, SSH disabled by default
-- MAC WinBox limited to LAN bridge
-- IPv6 disabled (no IPv6 firewall rules, so it's safer to turn it off)
-
-**You should also**: change the default admin password and schedule regular backups.
-
----
-
-## Troubleshooting
-
-**Routes inactive**: Check WAN cables and that ISP routers are delivering IPs. For ECMP, check `/ip dhcp-client print`. For PCC, check gateway reachability with `/tool ping`.
-
-**No load balancing**: For PCC, check `/ip firewall connection print where connection-mark~"ISP"` -- you should see a mix of ISP1 and ISP2 marks. For ECMP, check that both routes show as active.
-
-**Failover not working**: For ECMP, verify `check-gateway=ping` is set on both routes. For PCC, check `/log print where message~"FAILOVER"` and verify monitor IPs are reachable.
-
-**Speed only shows one ISP**: Normal for single-connection tests. Use multi-threaded tests (Speedtest.net, OpenSpeedTest).
-
----
-
-## Contributing
-
-1. Fork the repo
-2. Create a feature branch
-3. Test on actual hardware
-4. Submit a PR with a clear description
-
-When reporting issues, include: RouterOS version, router model, your config variables, and relevant logs from `/log print`.
-
----
-
-## License
-
-MIT -- do whatever you want with it.
-
----
-
-## Credits
-
-Based on [vishnunuk/mikrotik-dual-wan-loadbalance-failover](https://github.com/vishnunuk/mikrotik-dual-wan-loadbalance-failover). ECMP script and additional features by [@sugiruu](https://github.com/sugiruu).
+Fork de [vishnunuk/mikrotik-dual-wan-loadbalance-failover](https://github.com/vishnunuk/mikrotik-dual-wan-loadbalance-failover). Reescrito para usar ECMP + FastTrack.
