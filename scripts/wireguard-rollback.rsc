@@ -13,6 +13,6 @@
 :do { /interface wireguard remove [find name=wireguard1] } on-error={}
 :do { /ip route remove [find where comment="Cloud: Force Vivo"] } on-error={}
 
-/ip cloud set ddns-enabled=no
+/ip cloud set ddns-enabled=auto
 
 :put "WireGuard VPN removed."

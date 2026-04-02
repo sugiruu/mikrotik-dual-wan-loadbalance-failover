@@ -41,6 +41,24 @@
 /ip firewall nat add chain=srcnat dst-address=$lPiHoleAddress protocol=udp dst-port=53 src-address=$lLANSubnet action=masquerade comment="Force DNS to Pi-Hole (SNAT)"
 /ip firewall nat add chain=srcnat dst-address=$lPiHoleAddress protocol=tcp dst-port=53 src-address=$lLANSubnet action=masquerade comment="Force DNS to Pi-Hole (SNAT TCP)"
 
+# --- Parte 3: Excluir Pi-Hole DNS do FastTrack ---
+# FastTrack bypassa mangle, entao queries do Pi-Hole perdem o ForceVivo.
+# Marcamos a conexao e excluimos do FastTrack.
+:do { /ip firewall mangle remove [find where comment="Mark: Pi-Hole DNS"] } on-error={}
+/ip firewall mangle add chain=forward protocol=udp src-address=$lPiHoleAddress dst-port=53 action=mark-connection new-connection-mark=pihole-dns passthrough=yes comment="Mark: Pi-Hole DNS"
+
+# Recriar FastTrack excluindo pihole-dns
+:do { /ip firewall filter remove [find where comment~"FastTrack"] } on-error={}
+/ip firewall filter add chain=forward connection-state=established,related connection-mark=!pihole-dns action=fasttrack-connection comment="FastTrack: Established/Related (except Pi-Hole DNS)" place-before=[find where comment="Accept: Established Forward"]
+
+# --- Parte 4: DNS do proprio router pela Vivo ---
+# Queries DNS geradas pelo MikroTik (output chain) tambem precisam ir pela Vivo
+:do { /ip firewall mangle remove [find where comment~"DNS: Router via Vivo"] } on-error={}
+/ip firewall mangle add chain=output protocol=udp dst-port=53 action=mark-routing new-routing-mark=ForceVivo passthrough=no comment="DNS: Router via Vivo"
+/ip firewall mangle add chain=output protocol=tcp dst-port=53 action=mark-routing new-routing-mark=ForceVivo passthrough=no comment="DNS: Router via Vivo (TCP)"
+
 :put "DNS optimization applied."
 :put ("  Pi-Hole DNS upstream forced via Vivo (PPPoE)")
+:put ("  Pi-Hole DNS excluded from FastTrack")
+:put ("  Router DNS queries forced via Vivo")
 :put ("  LAN DNS queries redirected to Pi-Hole (" . $lPiHoleAddress . ")")
