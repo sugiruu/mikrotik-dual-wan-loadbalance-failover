@@ -13,7 +13,15 @@
 
 :put "Setting up WireGuard VPN..."
 
+# DDNS: enable and force traffic through Vivo (public IP)
+# Without these routes, ECMP may send cloud traffic via Claro (CGNAT) and DDNS gets stuck
 /ip cloud set ddns-enabled=yes
+:do { /ip route remove [find where comment="Cloud: Force Vivo"] } on-error={}
+:local cloudIP1 [:resolve "cloud.mikrotik.com"]
+:local cloudIP2 [:resolve "cloud2.mikrotik.com"]
+/ip route add dst-address=($cloudIP1 . "/32") gateway=pppoe-vivo comment="Cloud: Force Vivo"
+/ip route add dst-address=($cloudIP2 . "/32") gateway=pppoe-vivo comment="Cloud: Force Vivo"
+/ip cloud force-update
 
 :do { /interface wireguard remove [find name=wireguard1] } on-error={}
 /interface wireguard add name=wireguard1 listen-port=$lWGPort comment="WireGuard VPN"
