@@ -9,8 +9,15 @@ MikroTik RouterOS v7 scripts for dual WAN load balancing (ECMP + FastTrack) with
 ## Files
 
 - `mikrotik-dual-wan-ecmp.rsc` -- main script, imported on MikroTik via `/import`
-- `claro-static-restore.rsc` -- workaround: sets static IP when Claro bridge DHCP fails
-- `claro-dhcp-rollback.rsc` -- removes static IP and re-enables DHCP client
+- `mikrotik-dual-wan.rsc` -- PCC alternative (original upstream script)
+- `scripts/` -- auxiliary scripts, imported separately after the main script:
+  - `wireguard-setup.rsc` -- WireGuard VPN setup (DDNS, firewall, tunnel)
+  - `wireguard-rollback.rsc` -- removes all WireGuard config
+  - `claro-static-restore.rsc` -- workaround: sets static IP when Claro bridge DHCP fails
+  - `claro-dhcp-rollback.rsc` -- removes static IP and re-enables DHCP client
+  - `vivo-pppoe.rsc` -- switches Vivo from DHCP to PPPoE (bridge mode)
+  - `vivo-dhcp-rollback.rsc` -- reverts Vivo back to DHCP
+  - `dns-optimization.rsc` -- DNS cache and optimization tweaks
 - `local/` -- gitignored, contains credentials and local files (see `local/credentials.md`)
 
 ## RouterOS scripting gotchas

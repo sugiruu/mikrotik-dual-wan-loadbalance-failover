@@ -94,8 +94,8 @@ Claro pode não reconhecer o MAC do seu roteador e não entregar o IPv4. Você v
 5. Troque a WAN do MikroTik de volta pra DHCP -- a partir daí o IPv4 volta a funcionar normalmente
 
 Scripts auxiliares para os passos 3 e 5:
-- `claro-static-restore.rsc` -- configura o IP estático no MikroTik (passo 3)
-- `claro-dhcp-rollback.rsc` -- remove o estático e reativa DHCP (passo 5)
+- `scripts/claro-static-restore.rsc` -- configura o IP estático no MikroTik (passo 3)
+- `scripts/claro-dhcp-rollback.rsc` -- remove o estático e reativa DHCP (passo 5)
 
 **Solução 2 -- Clonar MAC (pode funcionar)**:
 Clone o MAC da WAN do modem da Claro na interface WAN do MikroTik e depois coloque em bridge. Não faça isso se for usar a solução 1.
@@ -137,7 +137,7 @@ Isso faz a porta LAN4 receber os frames PPPoE direto da fibra. As outras portas 
 Conecte a ether1 do MikroTik na porta LAN4 do modem Vivo. Suba e importe:
 
 ```
-/import vivo-pppoe.rsc
+/import scripts/vivo-pppoe.rsc
 ```
 
 Credenciais padrão: `cliente@cliente` / `cliente` (pode variar por região).
@@ -156,7 +156,17 @@ Se o PPPoE não conectar, pode ser necessário clonar o MAC da WAN do modem Vivo
 /interface ethernet set ether1 mac-address=XX:XX:XX:XX:XX:XX
 ```
 
-Pra reverter tudo: `/import vivo-dhcp-rollback.rsc` e reabilite ip2 no modem.
+Pra reverter tudo: `/import scripts/vivo-dhcp-rollback.rsc` e reabilite ip2 no modem.
+
+## WireGuard VPN (acesso remoto)
+
+Permite acessar a rede de casa de qualquer lugar (celular, notebook). Funciona apenas pela WAN com IP público (Vivo). Não usa login/senha -- autenticação por chaves criptográficas.
+
+```
+/import scripts/wireguard-setup.rsc
+```
+
+O script configura tudo (DDNS, interface, firewall) e imprime as instruções pra configurar o cliente. Pra remover: `/import scripts/wireguard-rollback.rsc`
 
 ## Regras bogon (importante)
 
