@@ -9,7 +9,6 @@
 
 # Remove mangle rules
 :do { /ip firewall mangle remove [find where comment~"DNS: Pi-Hole"] } on-error={}
-:do { /ip firewall mangle remove [find where comment~"DNS: Router via Vivo"] } on-error={}
 :do { /ip firewall mangle remove [find where comment="Mark: Pi-Hole DNS"] } on-error={}
 
 # Remove NAT redirect
