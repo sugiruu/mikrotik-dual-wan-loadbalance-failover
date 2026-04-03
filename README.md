@@ -2,19 +2,22 @@
 
 > **Nota**: este é um projeto pessoal de rede doméstica. Tudo aqui está em uso real, mas não é um projeto plug-and-play -- IPs, MACs, interfaces e ISPs são específicos do meu setup. Sinta-se livre pra copiar, adaptar e modificar pro seu cenário.
 
-Script para RouterOS v7 que configura duas conexões de internet com load balancing e failover automático.
+Scripts para RouterOS v7 com dual WAN: load balancing ECMP + FastTrack, failover automático, WireGuard VPN com full tunnel, Pi-Hole DNS, DHCP estático com hostnames `.lan`, traffic steering por dispositivo, e hardening de segurança.
 
-Testado com **Vivo + Claro** no Brasil, mas funciona com qualquer combinação de ISPs que entregue IP via DHCP (modo roteador ou bridge).
+Testado com **Vivo (PPPoE) + Claro (DHCP/CGNAT)** no Brasil em um hEX S (RB760iGS).
 
 ## O que faz
 
-- **Load balancing**: distribui conexões entre as duas WANs usando ECMP (Equal-Cost Multi-Path)
-- **FastTrack**: conexões estabelecidas são aceleradas pelo hardware, sem passar pelo firewall (~900Mbps no hEX S)
-- **Failover**: se um ISP cair, o tráfego vai automaticamente pro outro em ~10 segundos (via `check-gateway=ping`)
+- **Load balancing ECMP**: distribui conexões entre as duas WANs (Equal-Cost Multi-Path)
+- **FastTrack**: conexões estabelecidas são aceleradas pelo hardware (~900Mbps no hEX S)
+- **Failover automático**: se um ISP cair, tráfego migra pro outro em ~10 segundos (`check-gateway=ping`)
+- **WireGuard VPN**: acesso remoto à rede de casa com full tunnel, DDNS dinâmico e criptografia por chaves
+- **Pi-Hole DNS**: DHCP entrega Pi-Hole como DNS primário com fallback pra Cloudflare
+- **DHCP estático + hostnames**: IPs fixos por MAC e resolução de nomes `.lan` (ex: `ping meupc.lan`)
 - **Traffic steering**: força dispositivos específicos (ex: TV Box) a usar um ISP, com fallback pro outro
-- **Firewall**: bloqueia acesso externo, rate limit de ICMP e SYN, proteção contra IP spoofing
-- **DHCP server**: com suporte a leases estáticos e hostnames `.lan`
-- **Monitor**: loga mudanças de estado dos ISPs, opcionalmente envia email
+- **Firewall + hardening**: bloqueia acesso externo, rate limit de SYN/ICMP, proteção contra spoofing, serviços desnecessários desabilitados
+- **Suporte a PPPoE e DHCP**: scripts auxiliares pra Vivo (PPPoE/bridge) e Claro (DHCP/CGNAT)
+- **Monitor de ISP**: loga mudanças de estado, opcionalmente envia email
 
 ## Requisitos
 
@@ -26,10 +29,12 @@ Testado em: hEX S (RB760iGS), RB750Gr3
 
 ## Como usar
 
+### 1. Script principal
+
 1. Baixe o `mikrotik-dual-wan-ecmp.rsc`
-2. Abra o arquivo e edite as variáveis no topo (interfaces, IPs, MACs, timezone)
+2. Edite as variáveis no topo (interfaces, IPs, MACs, timezone)
 3. Remova as seções marcadas com `[OPCIONAL]` que não precisa
-4. Suba o arquivo no router (Winbox > Files > arrastar) e importe:
+4. Suba no router (Winbox > Files > arrastar) e importe:
 
 ```
 /import mikrotik-dual-wan-ecmp.rsc
@@ -37,11 +42,25 @@ Testado em: hEX S (RB760iGS), RB750Gr3
 
 > **CUIDADO**: o script reseta toda a configuração do router. Esteja conectado fisicamente (não via VPN/remoto). Faça backup antes: `/export file=backup`
 
-5. Depois de importar, troque a senha admin:
+5. Troque a senha admin:
 
 ```
 /user set admin password=SUA-SENHA-FORTE
 ```
+
+### 2. Scripts auxiliares (opcionais)
+
+Suba a pasta `scripts/` no router e importe conforme a necessidade:
+
+| Script | O que faz | Quando usar |
+|--------|-----------|-------------|
+| `scripts/wireguard-setup.rsc` | WireGuard VPN com DDNS e full tunnel | Acesso remoto à rede de casa |
+| `scripts/wireguard-rollback.rsc` | Remove toda configuração WireGuard | Reverter VPN |
+| `scripts/vivo-pppoe.rsc` | Troca Vivo de DHCP pra PPPoE | Vivo em bridge mode |
+| `scripts/vivo-dhcp-rollback.rsc` | Reverte Vivo pra DHCP | Desfazer bridge da Vivo |
+| `scripts/claro-static-restore.rsc` | Configura IP estático na Claro | Workaround pra Claro bridge (DHCP não funciona) |
+| `scripts/claro-dhcp-rollback.rsc` | Remove estático e reativa DHCP | Quando o lease da Claro expirar |
+| `scripts/dns-optimization.rsc` | Otimizações de cache DNS | Ajustes de DNS no router |
 
 ## Verificação
 
