@@ -1,29 +1,29 @@
 # MikroTik Dual WAN - ECMP + FastTrack
 
-> **Nota**: este é um projeto pessoal de rede doméstica. Tudo aqui está em uso real, mas não é um projeto plug-and-play -- IPs, MACs, interfaces e ISPs são específicos do meu setup. Sinta-se livre pra copiar, adaptar e modificar pro seu cenário.
+> Esse é meu setup pessoal de rede. Tá tudo rodando em produção na minha casa, mas foi feito pras minhas necessidades -- não é um projeto genérico plug-and-play. Se quiser usar como base pro seu, fica à vontade. Copia, adapta, quebra, conserta. É assim que se aprende.
 
-Scripts para RouterOS v7 com dual WAN: load balancing ECMP + FastTrack, failover automático, WireGuard VPN com full tunnel, Pi-Hole DNS, DHCP estático com hostnames `.lan`, traffic steering por dispositivo, e hardening de segurança.
+Scripts pra RouterOS v7: dual WAN com load balancing ECMP + FastTrack, failover automático, VPN WireGuard com full tunnel, Pi-Hole como DNS, DHCP estático com hostnames `.lan`, traffic steering por dispositivo e hardening de segurança.
 
-Testado com **Vivo (PPPoE) + Claro (DHCP/CGNAT)** no Brasil em um hEX S (RB760iGS).
+Rodando com **Vivo (PPPoE) + Claro (DHCP/CGNAT)** num hEX S (RB760iGS).
 
 ## O que faz
 
-- **Load balancing ECMP**: distribui conexões entre as duas WANs (Equal-Cost Multi-Path)
-- **FastTrack**: conexões estabelecidas são aceleradas pelo hardware (~900Mbps no hEX S)
-- **Failover automático**: se um ISP cair, tráfego migra pro outro em ~10 segundos (`check-gateway=ping`)
-- **WireGuard VPN**: acesso remoto à rede de casa com full tunnel, DDNS dinâmico e criptografia por chaves
-- **Pi-Hole DNS**: DHCP entrega Pi-Hole como DNS primário com fallback pra Cloudflare
-- **DHCP estático + hostnames**: IPs fixos por MAC e resolução de nomes `.lan` (ex: `ping meupc.lan`)
-- **Traffic steering**: força dispositivos específicos (ex: TV Box) a usar um ISP, com fallback pro outro
-- **Firewall + hardening**: bloqueia acesso externo, rate limit de SYN/ICMP, proteção contra spoofing, serviços desnecessários desabilitados
-- **Suporte a PPPoE e DHCP**: scripts auxiliares pra Vivo (PPPoE/bridge) e Claro (DHCP/CGNAT)
-- **Monitor de ISP**: loga mudanças de estado, opcionalmente envia email
+- **Load balancing ECMP** -- distribui conexões entre as duas WANs automaticamente
+- **FastTrack** -- conexões estabelecidas vão direto pelo hardware, sem passar pelo firewall (~900Mbps no hEX S)
+- **Failover automático** -- se um ISP cair, o tráfego migra pro outro em ~10 segundos
+- **WireGuard VPN** -- acesso remoto à rede de casa de qualquer lugar, com full tunnel e DDNS
+- **Pi-Hole DNS** -- DHCP entrega o Pi-Hole como DNS primário, com fallback pra Cloudflare
+- **DHCP estático + hostnames** -- IPs fixos por MAC e nomes `.lan` (ex: `ping meupc.lan`)
+- **Traffic steering** -- força dispositivos específicos a usar um ISP, com fallback pro outro
+- **Firewall + hardening** -- bloqueia acesso externo, rate limit de SYN/ICMP, anti-spoofing, serviços desnecessários desabilitados
+- **PPPoE e DHCP** -- scripts auxiliares pra Vivo (PPPoE/bridge) e Claro (DHCP/CGNAT)
+- **Monitor de ISP** -- loga mudanças de estado, opcionalmente manda email
 
 ## Requisitos
 
 - MikroTik com **RouterOS v7.20+**
 - 5 portas ethernet (2 WAN + 3 LAN) ou mais
-- Winbox, WebFig ou SSH para acessar o router
+- Winbox, WebFig ou SSH
 
 Testado em: hEX S (RB760iGS), RB750Gr3
 
@@ -40,7 +40,7 @@ Testado em: hEX S (RB760iGS), RB750Gr3
 /import mikrotik-dual-wan-ecmp.rsc
 ```
 
-> **CUIDADO**: o script reseta toda a configuração do router. Esteja conectado fisicamente (não via VPN/remoto). Faça backup antes: `/export file=backup`
+> **CUIDADO**: o script reseta toda a configuração do router. Conecte fisicamente -- não faça isso por VPN/remoto. Backup antes: `/export file=backup`
 
 5. Troque a senha admin:
 
@@ -50,17 +50,17 @@ Testado em: hEX S (RB760iGS), RB750Gr3
 
 ### 2. Scripts auxiliares (opcionais)
 
-Suba a pasta `scripts/` no router e importe conforme a necessidade:
+Suba a pasta `scripts/` no router e importe o que precisar:
 
 | Script | O que faz | Quando usar |
 |--------|-----------|-------------|
-| `scripts/wireguard-setup.rsc` | WireGuard VPN com DDNS e full tunnel | Acesso remoto à rede de casa |
-| `scripts/wireguard-rollback.rsc` | Remove toda configuração WireGuard | Reverter VPN |
-| `scripts/vivo-pppoe.rsc` | Troca Vivo de DHCP pra PPPoE | Vivo em bridge mode |
-| `scripts/vivo-dhcp-rollback.rsc` | Reverte Vivo pra DHCP | Desfazer bridge da Vivo |
-| `scripts/claro-static-restore.rsc` | Configura IP estático na Claro | Workaround pra Claro bridge (DHCP não funciona) |
+| `scripts/wireguard-setup.rsc` | WireGuard VPN com DDNS e full tunnel | Quer acessar sua rede de fora |
+| `scripts/wireguard-rollback.rsc` | Remove toda configuração WireGuard | Quer desfazer a VPN |
+| `scripts/vivo-pppoe.rsc` | Troca Vivo de DHCP pra PPPoE | Colocou a Vivo em bridge |
+| `scripts/vivo-dhcp-rollback.rsc` | Reverte Vivo pra DHCP | Quer voltar a Vivo pro modo roteador |
+| `scripts/claro-static-restore.rsc` | Configura IP estático na Claro | Claro em bridge não entrega IPv4 |
 | `scripts/claro-dhcp-rollback.rsc` | Remove estático e reativa DHCP | Quando o lease da Claro expirar |
-| `scripts/dns-optimization.rsc` | Otimizações de cache DNS | Ajustes de DNS no router |
+| `scripts/dns-optimization.rsc` | Otimizações de cache DNS | Quer tunnar o DNS do router |
 
 ## Verificação
 
@@ -80,50 +80,46 @@ Suba a pasta `scripts/` no router e importe conforme a necessidade:
 
 ## Testar failover
 
-Puxe o cabo de uma WAN. Em ~10 segundos a rota desativa e o tráfego vai pela outra. Reconecte e a rota volta automaticamente.
+Puxa o cabo de uma WAN. Em ~10 segundos a rota desativa e o tráfego vai pela outra. Reconecta e volta automaticamente.
 
 ## Seções opcionais
 
-O script tem seções marcadas com `[OPCIONAL]` que você pode remover:
+O script principal tem seções marcadas com `[OPCIONAL]` que você pode remover:
 
 | Seção | O que faz | Quando remover |
 |-------|-----------|----------------|
-| DHCP Leases Estáticos | IPs fixos por MAC | Se não precisa de IP fixo pra nenhum dispositivo |
-| DNS Hostnames | Nomes .lan (ex: `ping meupc.lan`) | Se não quer acessar dispositivos por nome |
-| Traffic Steering | Força dispositivo a usar um ISP | Se não precisa direcionar tráfego |
-| Email | Notificações de queda/retorno | Se não quer receber alertas |
-| Monitor de ISP | Log de mudanças de estado | Se não quer monitoramento |
-| Monitor de Memória | Alerta de memória alta | Se não quer monitoramento |
+| DHCP Leases Estáticos | IPs fixos por MAC | Não precisa de IP fixo |
+| DNS Hostnames | Nomes `.lan` | Não quer acessar dispositivos por nome |
+| Traffic Steering | Força dispositivo pra um ISP | Não precisa direcionar tráfego |
+| Email | Alertas de queda/retorno por email | Não quer notificações |
+| Monitor de ISP | Log de estado dos ISPs | Não quer monitoramento |
+| Monitor de Memória | Alerta de memória alta | Não quer monitoramento |
 
 ## Bridge mode
 
-O script assume que ambos os ISPs entregam IP via DHCP. Isso funciona quando:
-- Os modems estão em **modo roteador** (double NAT, funciona normal pra uso residencial)
-- A **Claro** está em bridge (entrega DHCP/CGNAT direto)
-
-Se você não precisa de bridge, pode usar os modems em modo roteador sem problemas.
+O script assume que os ISPs entregam IP via DHCP. Funciona com os modems em **modo roteador** (double NAT -- pra uso residencial nem faz diferença) ou em **bridge**.
 
 ### Claro em bridge
 
-Claro pode não reconhecer o MAC do seu roteador e não entregar o IPv4. Você vai notar que só o IPv6 funciona e o DHCP fica em `requesting` pra sempre.
+A Claro com OLT ZTE pode não reconhecer o MAC do seu roteador e não entregar IPv4. Sintoma: só IPv6 funciona, DHCP fica em `requesting` pra sempre.
 
-**Solução 1 -- IP estático temporário (funciona com certeza)**:
-1. Antes de ativar bridge, entre no modem e anote: IP público, gateway e máscara (tela Status > WAN)
+**Solução 1 -- IP estático temporário**:
+1. Antes de ativar bridge, anote no modem: IP público, gateway e máscara (Status > WAN)
 2. Coloque o modem em bridge
-3. Configure a WAN do MikroTik em modo estático com os dados anotados -- a internet vai funcionar
-4. Depois de um tempo você vai perder a internet
-5. Troque a WAN do MikroTik de volta pra DHCP -- a partir daí o IPv4 volta a funcionar normalmente
+3. Configure a WAN do MikroTik com IP estático usando os dados anotados -- internet vai funcionar
+4. Quando parar de funcionar (lease expirou), troque de volta pra DHCP
+5. A partir daí o DHCP funciona normalmente
 
-Scripts auxiliares para os passos 3 e 5:
-- `scripts/claro-static-restore.rsc` -- configura o IP estático no MikroTik (passo 3)
-- `scripts/claro-dhcp-rollback.rsc` -- remove o estático e reativa DHCP (passo 5)
+Scripts auxiliares pros passos 3 e 4:
+- `scripts/claro-static-restore.rsc` -- configura o IP estático
+- `scripts/claro-dhcp-rollback.rsc` -- remove estático e reativa DHCP
 
-**Solução 2 -- Clonar MAC (pode funcionar)**:
-Clone o MAC da WAN do modem da Claro na interface WAN do MikroTik e depois coloque em bridge. Não faça isso se for usar a solução 1.
+**Solução 2 -- Clonar MAC**:
+Clone o MAC da WAN do modem Claro na interface WAN do MikroTik antes de ativar bridge.
 
 ### Vivo em bridge (PPPoE)
 
-A Vivo usa PPPoE, não DHCP. O modem precisa ser configurado pra passar o PPPoE por uma porta LAN específica pro MikroTik.
+A Vivo usa PPPoE, não DHCP. Precisa configurar o modem pra passar PPPoE por uma porta LAN pro MikroTik.
 
 #### Passo 1 -- Acessar a página avançada do modem
 
@@ -131,98 +127,95 @@ Modems Vivo (Askey, Mitrastar, etc.) bloqueiam o acesso às configurações avan
 
 1. Desconecte a fibra óptica do modem
 2. Conecte um PC por cabo no modem
-3. Acesse `192.168.15.1/instalador` e logue com usuário `support` e a senha padrão (etiqueta embaixo do modem)
-4. Mude a região pra outra (se for VIVO2, mude pra VIVO1) e aplique -- o modem vai resetar
-5. Acesse `192.168.15.1/padrao` pra confirmar que funciona (não configure nada ainda)
-6. Volte em `192.168.15.1/instalador` e restaure a região original -- vai resetar de novo
-7. Agora acesse `192.168.15.1/padrao` com o usuário `support` e faça as configurações
-8. Desative o gerenciamento remoto da operadora: Manutenção > TR-069 Client > CWMP > Desativar
+3. Acesse `192.168.15.1/instalador` com usuário `support` e a senha da etiqueta
+4. Mude a região pra outra (VIVO2 → VIVO1) e aplique -- o modem reseta
+5. Acesse `192.168.15.1/padrao` pra confirmar acesso (não mexa em nada ainda)
+6. Volte em `192.168.15.1/instalador` e restaure a região original -- reseta de novo
+7. Agora acesse `192.168.15.1/padrao` com `support` e configure
+8. Desative gerenciamento remoto: Manutenção > TR-069 Client > CWMP > Desativar
 9. Reconecte a fibra óptica
 
 #### Passo 2 -- Configurar bridge por porta no modem
 
-Nas configurações avançadas (`192.168.15.1/padrao`):
+Em `192.168.15.1/padrao`:
 
-1. Vá em WAN Setting > WAN Interface e **desabilite** a conexão PPPoE (ip2, VLAN 600)
+1. WAN Setting > WAN Interface: **desabilite** a conexão PPPoE (ip2, VLAN 600)
 
    ![WAN Interface](assets/wan_interface.jpg)
-2. Vá em Bridging > Filtering (L2 Ingress Filtering)
-3. Encontre a porta LAN que vai conectar no MikroTik (ex: `eth0.4` = porta LAN4)
+2. Bridging > Filtering (L2 Ingress Filtering)
+3. Encontre a porta LAN que vai no MikroTik (ex: `eth0.4` = LAN4)
 4. Edite: Associated Bridge = `1(Internet WAN)`, VLAN ID = `600`, Adm.State = Enable
 5. Salve
 
-Isso faz a porta LAN4 receber os frames PPPoE direto da fibra. As outras portas e WiFi servem apenas pra gerenciar o modem -- a internet só funciona pelo MikroTik.
+A porta LAN4 agora recebe os frames PPPoE direto da fibra. As outras portas e WiFi servem só pra gerenciar o modem.
 
 #### Passo 3 -- Ativar PPPoE no MikroTik
 
-Conecte a ether1 do MikroTik na porta LAN4 do modem Vivo. Suba e importe:
+Conecte a ether1 do MikroTik na porta LAN4 do modem Vivo e importe:
 
 ```
 /import scripts/vivo-pppoe.rsc
 ```
 
 Credenciais padrão: `cliente@cliente` / `cliente` (pode variar por região).
-A VLAN muda dependendo da região: Vivo2 usa VLAN 600. Confira o ID da VLAN em WAN Setting > WAN Interface na página do modem.
+A VLAN depende da região: Vivo2 usa VLAN 600. Confira em WAN Setting > WAN Interface no modem.
 
-Verificação:
 ```
 /interface pppoe-client print    # deve mostrar R (RUNNING)
 /ip route print where dst-address=0.0.0.0/0    # rota PPPoE ativa
 /tool ping 1.1.1.1 interface=pppoe-vivo count=3
 ```
 
-Se o PPPoE não conectar, pode ser necessário clonar o MAC da WAN do modem Vivo na ether1 do MikroTik. O MAC da WAN está na etiqueta do modem ou em WAN Setting > WAN Interface. No MikroTik:
+Se não conectar, tente clonar o MAC da WAN do modem na ether1: `/interface ethernet set ether1 mac-address=XX:XX:XX:XX:XX:XX`
 
-```
-/interface ethernet set ether1 mac-address=XX:XX:XX:XX:XX:XX
-```
-
-Pra reverter tudo: `/import scripts/vivo-dhcp-rollback.rsc` e reabilite ip2 no modem.
+Pra reverter: `/import scripts/vivo-dhcp-rollback.rsc` e reabilite ip2 no modem.
 
 ## WireGuard VPN (acesso remoto)
 
-Permite acessar a rede de casa de qualquer lugar (celular, notebook). Requer pelo menos uma WAN com IP público (sem CGNAT). Não usa login/senha -- autenticação por chaves criptográficas.
+Acesse sua rede de casa de qualquer lugar -- celular, notebook, tanto faz. O tráfego passa por um túnel criptografado até o MikroTik e sai pela sua internet. Bom pra WiFi público, 4G, hotel, aeroporto.
+
+Requer pelo menos uma WAN com IP público (sem CGNAT). Não usa login/senha -- a autenticação é por chaves criptográficas (quem não tem a chave nem recebe resposta do servidor).
 
 ```
 /import scripts/wireguard-setup.rsc
 ```
 
-O script configura tudo (DDNS, interface WireGuard, firewall, NAT) e imprime as instruções pra configurar o cliente.
+O script configura tudo (DDNS, WireGuard, firewall, NAT) e imprime as instruções.
 
 ### O que o script faz
 
-- Ativa DDNS gratuito da MikroTik (`xxxxx.sn.mynetname.net`) -- hostname fixo que acompanha o IP dinâmico
-- Força tráfego do DDNS pela WAN com IP público (com dual WAN + CGNAT, o ECMP pode enviar pela WAN errada e o DDNS trava)
+- Ativa DDNS gratuito da MikroTik -- hostname fixo que acompanha o IP dinâmico
+- Força tráfego do DDNS pela WAN com IP público (com ECMP + CGNAT, o DDNS pode travar se sair pela WAN errada)
 - Cria interface WireGuard na porta UDP 13231
-- Abre porta no firewall apenas na interface da WAN pública (ex: `pppoe-vivo`)
-- Permite tráfego VPN pra LAN e internet (full tunnel)
-- Adiciona NAT pra clientes VPN acessarem a internet pela rede de casa
+- Abre porta no firewall só na interface da WAN pública
+- Libera tráfego VPN pra LAN e internet (full tunnel)
+- NAT pro tráfego VPN sair pela internet de casa
 
-### Configuração do cliente (celular/notebook)
+### Configuração do cliente
 
 1. Instale o app **WireGuard** (Android/iOS/Windows/Linux)
-2. Crie um túnel novo -- o app gera as chaves automaticamente
+2. Crie um túnel novo -- o app gera as chaves
 3. Configure a **Interface**:
    - **Endereço**: `10.0.0.2/32`
-   - **DNS**: `1.1.1.1` (ou o IP do Pi-Hole)
+   - **DNS**: `1.1.1.1` (ou IP do Pi-Hole)
 4. Adicione um **Peer**:
-   - **Chave pública**: copie do MikroTik (`/interface wireguard print`)
+   - **Chave pública**: pegue do MikroTik (`/interface wireguard print`)
    - **Endpoint**: `<seu-ddns>.sn.mynetname.net:13231` (veja com `/ip cloud print`)
-   - **IPs permitidos**: `0.0.0.0/0` (todo tráfego pela VPN -- recomendado pra redes públicas)
+   - **IPs permitidos**: `0.0.0.0/0` (todo tráfego pela VPN)
    - **Keepalive persistente**: `25`
-5. No MikroTik, adicione o peer com a chave pública do cliente:
+5. No MikroTik, adicione o peer:
    ```
    /interface wireguard peers add interface=wireguard1 public-key="CHAVE_DO_CLIENTE" allowed-address=10.0.0.2/32 comment="Peer: Celular"
    ```
-6. Ative o túnel no app e teste acessando `http://10.0.0.1` (WebFig do MikroTik)
+6. Ative o túnel e teste: `http://10.0.0.1`
 
-Cada dispositivo precisa de um IP diferente: celular = `10.0.0.2`, notebook = `10.0.0.3`, etc.
+Cada dispositivo usa um IP diferente: celular = `.2`, notebook = `.3`, etc.
 
-Pra remover tudo: `/import scripts/wireguard-rollback.rsc`
+Pra remover: `/import scripts/wireguard-rollback.rsc`
 
-## Regras bogon (importante)
+## Regras bogon
 
-O firewall bloqueia IPs privados vindos da WAN (proteção contra spoofing). Se seu ISP entrega IP privado (ex: 192.168.x.x em modo roteador), desabilite a regra correspondente:
+O firewall bloqueia IPs privados vindos da WAN (anti-spoofing). Se seu ISP entrega IP privado (ex: 192.168.x.x no modo roteador), desabilite a regra:
 
 ```
 /ip firewall raw disable [find where comment~"192.168"]
@@ -234,4 +227,4 @@ MIT
 
 ## Créditos
 
-Fork de [vishnunuk/mikrotik-dual-wan-loadbalance-failover](https://github.com/vishnunuk/mikrotik-dual-wan-loadbalance-failover). Reescrito para usar ECMP + FastTrack.
+Fork de [vishnunuk/mikrotik-dual-wan-loadbalance-failover](https://github.com/vishnunuk/mikrotik-dual-wan-loadbalance-failover). Adaptado com brasileiridades.
