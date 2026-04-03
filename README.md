@@ -1,5 +1,7 @@
 # MikroTik Dual WAN - ECMP + FastTrack
 
+> **Nota**: este é um projeto pessoal de rede doméstica. Tudo aqui está em uso real, mas não é um projeto plug-and-play -- IPs, MACs, interfaces e ISPs são específicos do meu setup. Sinta-se livre pra copiar, adaptar e modificar pro seu cenário.
+
 Script para RouterOS v7 que configura duas conexões de internet com load balancing e failover automático.
 
 Testado com **Vivo + Claro** no Brasil, mas funciona com qualquer combinação de ISPs que entregue IP via DHCP (modo roteador ou bridge).
