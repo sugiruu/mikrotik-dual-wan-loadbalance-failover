@@ -1,6 +1,6 @@
 # MikroTik Dual WAN - ECMP + FastTrack
 
-> Esse é meu setup pessoal de rede. Tá tudo rodando em produção na minha casa, mas foi feito pras minhas necessidades, não é um projeto genérico plug-and-play. Se quiser usar como base pro seu, fica à vontade. Copia, adapta, quebra, conserta. É assim que se aprende.
+> Esse é meu setup pessoal de rede. Tá tudo rodando na minha casa, mas foi feito pras minhas necessidades, não é um projeto genérico plug-and-play. Se quiser usar como base pro seu, fica à vontade. Copia, adapta, quebra, conserta. É assim que se aprende.
 
 Scripts pra RouterOS v7: dual WAN com load balancing ECMP + FastTrack, failover automático, VPN WireGuard com full tunnel, Pi-Hole como DNS, DHCP estático com hostnames `.lan`, traffic steering por dispositivo e hardening de segurança.
 
@@ -97,7 +97,7 @@ O script principal tem seções marcadas com `[OPCIONAL]` que você pode remover
 
 ## Bridge mode
 
-O script assume que os ISPs entregam IP via DHCP. Funciona com os modems em **modo roteador** (double NAT, pra uso residencial nem faz diferença) ou em **bridge**.
+O script assume que os ISPs entregam IP via DHCP. Funciona com os modems em **modo roteador** (double NAT) -- pra uso residencial é OK, mas se você chegou até este projeto, só OK não é o suficiente -- ou em **bridge**.
 
 ### Claro em bridge
 
