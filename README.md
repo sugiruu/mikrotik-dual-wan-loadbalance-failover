@@ -24,6 +24,8 @@ Rodando com **Vivo (PPPoE) + Claro (DHCP/CGNAT)** num hEX S (RB760iGS).
 - MikroTik com **RouterOS v7.20+**
 - 5 portas ethernet (2 WAN + 3 LAN) ou mais
 - Winbox, WebFig ou SSH
+- Pi-hole (opcional)
+- *Muita* paciência e persistência pra deixar tudo redondo
 
 Testado em: hEX S (RB760iGS), RB750Gr3
 
@@ -97,7 +99,7 @@ O script principal tem seções marcadas com `[OPCIONAL]` que você pode remover
 
 ## Bridge mode
 
-O script assume que os ISPs entregam IP via DHCP. Funciona com os modems em **modo roteador** (double NAT) -- pra uso residencial é OK, mas se você chegou até este projeto, só OK não é o suficiente -- ou em **bridge**.
+O script assume que os ISPs entregam IP via DHCP. Funciona com os modems em **modo roteador** (double NAT) -- pra uso residencial é OK, mas convenhamos: se você chegou até este projeto, só OK não é o suficiente -- ou em **bridge**.
 
 ### Claro em bridge
 
@@ -147,7 +149,8 @@ Em `192.168.15.1/padrao`:
 4. Edite: Associated Bridge = `1(Internet WAN)`, VLAN ID = `600`, Adm.State = Enable
 5. Salve
 
-A porta LAN4 agora recebe os frames PPPoE direto da fibra. As outras portas e WiFi servem só pra gerenciar o modem.
+A porta LAN4 agora recebe os frames PPPoE direto da fibra. Seu modem vai funcionar como uma simples ONU sem a necessidade de trocar o equipamento.
+As outras portas e WiFi (se habilitado) continuam ativos, mas servem só pra gerenciar o modem.
 
 #### Passo 3: Ativar PPPoE no MikroTik
 
