@@ -147,6 +147,8 @@ Em `192.168.15.1/padrao`:
 2. Bridging > Filtering (L2 Ingress Filtering)
 3. Encontre a porta LAN que vai no MikroTik (ex: `eth0.4` = LAN4)
 4. Edite: Associated Bridge = `1(Internet WAN)`, VLAN ID = `600`, Adm.State = Enable
+
+   ![Ingress Interface](assets/ingress.jpg)
 5. Salve
 
 A porta LAN4 agora recebe os frames PPPoE direto da fibra. Seu modem vai funcionar como uma simples ONU sem a necessidade de trocar o equipamento.
