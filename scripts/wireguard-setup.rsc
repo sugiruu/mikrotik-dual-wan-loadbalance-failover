@@ -35,6 +35,14 @@
 :do { /ip firewall filter remove [find where comment="Accept: WireGuard to LAN"] } on-error={}
 /ip firewall filter add chain=forward in-interface=wireguard1 out-interface=bridge-lan action=accept comment="Accept: WireGuard to LAN" place-before=[find where comment="Drop: All Other Forward"]
 
+# Allow VPN clients to reach the internet (full tunnel)
+:do { /ip firewall filter remove [find where comment="Accept: WireGuard Forward All"] } on-error={}
+/ip firewall filter add chain=forward in-interface=wireguard1 action=accept comment="Accept: WireGuard Forward All" place-before=[find where comment="Drop: All Other Forward"]
+
+# NAT for VPN traffic going to internet
+:do { /ip firewall nat remove [find where comment="NAT: WireGuard VPN"] } on-error={}
+/ip firewall nat add chain=srcnat src-address=$lWGSubnet out-interface-list=WAN action=masquerade comment="NAT: WireGuard VPN"
+
 :do { /ip firewall filter remove [find where comment="Accept: WireGuard Input"] } on-error={}
 /ip firewall filter add chain=input in-interface=wireguard1 action=accept comment="Accept: WireGuard Input" place-before=[find where comment="Drop: WAN Input"]
 
@@ -77,6 +85,6 @@
 :put "  [Peer]"
 :put ("  PublicKey = " . $pubKey)
 :put ("  Endpoint = " . $ddns . ":" . $lWGPort)
-:put "  AllowedIPs = 192.168.100.0/24, 10.0.0.0/24"
+:put "  AllowedIPs = 0.0.0.0/0"
 :put "  PersistentKeepalive = 25"
 :put ""

@@ -160,13 +160,44 @@ Pra reverter tudo: `/import scripts/vivo-dhcp-rollback.rsc` e reabilite ip2 no m
 
 ## WireGuard VPN (acesso remoto)
 
-Permite acessar a rede de casa de qualquer lugar (celular, notebook). Funciona apenas pela WAN com IP público (Vivo). Não usa login/senha -- autenticação por chaves criptográficas.
+Permite acessar a rede de casa de qualquer lugar (celular, notebook). Requer pelo menos uma WAN com IP público (sem CGNAT). Não usa login/senha -- autenticação por chaves criptográficas.
 
 ```
 /import scripts/wireguard-setup.rsc
 ```
 
-O script configura tudo (DDNS, interface, firewall) e imprime as instruções pra configurar o cliente. Pra remover: `/import scripts/wireguard-rollback.rsc`
+O script configura tudo (DDNS, interface WireGuard, firewall, NAT) e imprime as instruções pra configurar o cliente.
+
+### O que o script faz
+
+- Ativa DDNS gratuito da MikroTik (`xxxxx.sn.mynetname.net`) -- hostname fixo que acompanha o IP dinâmico
+- Força tráfego do DDNS pela WAN com IP público (com dual WAN + CGNAT, o ECMP pode enviar pela WAN errada e o DDNS trava)
+- Cria interface WireGuard na porta UDP 13231
+- Abre porta no firewall apenas na interface da WAN pública (ex: `pppoe-vivo`)
+- Permite tráfego VPN pra LAN e internet (full tunnel)
+- Adiciona NAT pra clientes VPN acessarem a internet pela rede de casa
+
+### Configuração do cliente (celular/notebook)
+
+1. Instale o app **WireGuard** (Android/iOS/Windows/Linux)
+2. Crie um túnel novo -- o app gera as chaves automaticamente
+3. Configure a **Interface**:
+   - **Endereço**: `10.0.0.2/32`
+   - **DNS**: `1.1.1.1` (ou o IP do Pi-Hole)
+4. Adicione um **Peer**:
+   - **Chave pública**: copie do MikroTik (`/interface wireguard print`)
+   - **Endpoint**: `<seu-ddns>.sn.mynetname.net:13231` (veja com `/ip cloud print`)
+   - **IPs permitidos**: `0.0.0.0/0` (todo tráfego pela VPN -- recomendado pra redes públicas)
+   - **Keepalive persistente**: `25`
+5. No MikroTik, adicione o peer com a chave pública do cliente:
+   ```
+   /interface wireguard peers add interface=wireguard1 public-key="CHAVE_DO_CLIENTE" allowed-address=10.0.0.2/32 comment="Peer: Celular"
+   ```
+6. Ative o túnel no app e teste acessando `http://10.0.0.1` (WebFig do MikroTik)
+
+Cada dispositivo precisa de um IP diferente: celular = `10.0.0.2`, notebook = `10.0.0.3`, etc.
+
+Pra remover tudo: `/import scripts/wireguard-rollback.rsc`
 
 ## Regras bogon (importante)
 
