@@ -35,8 +35,19 @@
 :do { /ip firewall filter remove [find where comment="Accept: WireGuard to LAN"] } on-error={}
 /ip firewall filter add chain=forward in-interface=wireguard1 out-interface=bridge-lan action=accept comment="Accept: WireGuard to LAN" place-before=[find where comment="Drop: All Other Forward"]
 
+:do { /ip firewall filter remove [find where comment="Accept: WireGuard Input"] } on-error={}
+/ip firewall filter add chain=input in-interface=wireguard1 action=accept comment="Accept: WireGuard Input" place-before=[find where comment="Drop: WAN Input"]
+
 :do { /ip firewall address-list remove [find where comment="WireGuard VPN Subnet"] } on-error={}
 /ip firewall address-list add address=$lWGSubnet list=Management comment="WireGuard VPN Subnet"
+
+# Allow services (www, winbox, ssh) from WireGuard subnet
+:local currentWWW [/ip service get www address]
+:if ([:find $currentWWW "10.0.0.0/24"] < 0) do={
+    /ip service set www address=($currentWWW . ",10.0.0.0/24")
+    /ip service set winbox address=($currentWWW . ",10.0.0.0/24")
+    /ip service set ssh address=($currentWWW . ",10.0.0.0/24")
+}
 
 :delay 3s
 
