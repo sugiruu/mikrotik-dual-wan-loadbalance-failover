@@ -334,7 +334,8 @@ set winbox address=$lLANSubnet disabled=no
 
 /system clock set time-zone-name=$lTimeZone
 /system identity set name="DualWAN-Router"
-:do { /ipv6 settings set disable-ipv6=yes forward=no accept-redirects=no } on-error={}
+:do { /ipv6 settings set disable-ipv6=yes forward=no accept-redirects=no disable-link-local-address=yes } on-error={}
+:do { /ipv6 firewall filter add chain=forward action=reject reject-with=icmp-no-route comment="Reject: All IPv6 forward (no IPv6 firewall configured)" } on-error={}
 /ip settings set rp-filter=loose
 
 /ip firewall connection tracking
