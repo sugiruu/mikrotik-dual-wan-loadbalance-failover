@@ -29,5 +29,42 @@
 :do { /ip firewall raw remove [find where comment~"DoT"] } on-error={}
 /ip firewall raw add chain=prerouting protocol=tcp dst-port=853 src-address=$lLANSubnet action=drop comment="Block DoT (force Pi-Hole)"
 
+# --- Registro DNS automatico de DHCP leases ---
+# Quando um dispositivo pega ou libera lease, cria/remove registros DNS (A).
+# Nao sobrescreve registros manuais (comment comeca com "LAN:").
+# O Pi-Hole usa conditional forwarding pro MikroTik resolver esses nomes.
+
+:do { /system script remove [find where name="dhcp-dns-lease"] } on-error={}
+/system script add name="dhcp-dns-lease" source={
+    :local token ("DHCP-" . $leaseActMAC)
+    :if ($leaseBound = 1) do={
+        :local hostName $"lease-hostname"
+        :if ([:len $hostName] = 0) do={ :set hostName $leaseActMAC }
+        :local upper "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        :local lower "abcdefghijklmnopqrstuvwxyz"
+        :local clean ""
+        :for i from=0 to=([:len $hostName] - 1) do={
+            :local c [:pick $hostName $i]
+            :local pos [:find $upper $c]
+            :if ([:typeof $pos] = "num") do={
+                :set clean ($clean . [:pick $lower $pos])
+            } else={
+                :if ($c ~ "[a-z0-9]") do={ :set clean ($clean . $c) } else={ :set clean ($clean . "-") }
+            }
+        }
+        :set hostName $clean
+        :local fqdn ($hostName . ".lan")
+        :do { /ip dns static remove [find where comment=$token] } on-error={}
+        :if ([:len [/ip dns static find where name=$fqdn and comment~"LAN:"]] = 0) do={
+            /ip dns static add name=$fqdn address=$leaseActIP ttl=00:15:00 comment=$token
+        }
+    } else={
+        :do { /ip dns static remove [find where comment=$token] } on-error={}
+    }
+}
+
+/ip dhcp-server set lan-dhcp lease-script="/system script run dhcp-dns-lease"
+
 :put "DNS optimization applied."
 :put ("  LAN DNS queries redirected to Pi-Hole (" . $lPiHoleAddress . ")")
+:put "  DHCP lease DNS registration enabled"
