@@ -62,7 +62,7 @@ Suba a pasta `scripts/` no router e importe o que precisar:
 | `scripts/vivo-dhcp-rollback.rsc` | Reverte Vivo pra DHCP | Quer voltar a Vivo pro modo roteador |
 | `scripts/claro-static-restore.rsc` | Configura IP estático na Claro | Claro em bridge não entrega IPv4 |
 | `scripts/claro-dhcp-rollback.rsc` | Remove estático e reativa DHCP | Quando o lease da Claro expirar |
-| `scripts/dns-optimization.rsc` | Otimizações de cache DNS | Quer tunnar o DNS do router |
+| `scripts/dns-optimization.rsc` | Redireciona DNS pro Pi-Hole + bloqueia DoT | Quer forçar todo DNS pelo Pi-Hole |
 
 ## Verificação
 

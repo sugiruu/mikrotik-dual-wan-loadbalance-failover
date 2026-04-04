@@ -21,5 +21,13 @@
 /ip firewall nat add chain=srcnat dst-address=$lPiHoleAddress protocol=udp dst-port=53 src-address=$lLANSubnet action=masquerade comment="Force DNS to Pi-Hole (SNAT)"
 /ip firewall nat add chain=srcnat dst-address=$lPiHoleAddress protocol=tcp dst-port=53 src-address=$lLANSubnet action=masquerade comment="Force DNS to Pi-Hole (SNAT TCP)"
 
+# --- Bloquear DNS over TLS (DoT) ---
+# Dispositivos com "DNS Privado" (Android) usam DoT na porta 853
+# pra bypassar o Pi-Hole. Esta regra forca o fallback pro DNS normal (porta 53)
+# que e redirecionado pro Pi-Hole pelas regras acima.
+# Regra na RAW pra funcionar antes do FastTrack.
+:do { /ip firewall raw remove [find where comment~"DoT"] } on-error={}
+/ip firewall raw add chain=prerouting protocol=tcp dst-port=853 src-address=$lLANSubnet action=drop comment="Block DoT (force Pi-Hole)"
+
 :put "DNS optimization applied."
 :put ("  LAN DNS queries redirected to Pi-Hole (" . $lPiHoleAddress . ")")
