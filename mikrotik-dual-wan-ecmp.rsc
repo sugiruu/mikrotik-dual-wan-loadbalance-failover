@@ -371,8 +371,9 @@ add name=isp-monitor interval=1m start-time=startup on-event={
     :global WAN2DownCount
     :global WAN1UpCount
     :global WAN2UpCount
-    :global EmailEnable
-    :global EmailTo
+    # Email: le direto do /tool e-mail (persiste no reboot)
+    :local emailTo [/tool e-mail get user]
+    :local emailOk ([:len $emailTo] > 0 && $emailTo != "")
 
     :local debounce 3
 
@@ -398,8 +399,8 @@ add name=isp-monitor interval=1m start-time=startup on-event={
         :if ($WAN1DownCount = $debounce && $WAN1Status = "up") do={
             :set WAN1Status "down"
             :log error "[MONITOR] Vivo DOWN"
-            :if ($EmailEnable = true) do={
-                :do { /tool e-mail send to=$EmailTo subject="[DualWAN] Vivo DOWN" body="Vivo caiu. Trafego redirecionado para Claro." } on-error={}
+            :if ($emailOk) do={
+                :do { /tool e-mail send to=$emailTo subject="[DualWAN] Vivo DOWN" body="Vivo caiu. Trafego redirecionado para Claro." } on-error={}
             }
         }
     } else={
@@ -408,8 +409,8 @@ add name=isp-monitor interval=1m start-time=startup on-event={
         :if ($WAN1UpCount = $debounce && $WAN1Status = "down") do={
             :set WAN1Status "up"
             :log info "[MONITOR] Vivo RECOVERED"
-            :if ($EmailEnable = true) do={
-                :do { /tool e-mail send to=$EmailTo subject="[DualWAN] Vivo voltou" body="Vivo voltou ao normal." } on-error={}
+            :if ($emailOk) do={
+                :do { /tool e-mail send to=$emailTo subject="[DualWAN] Vivo voltou" body="Vivo voltou ao normal." } on-error={}
             }
         }
     }
@@ -421,8 +422,8 @@ add name=isp-monitor interval=1m start-time=startup on-event={
         :if ($WAN2DownCount = $debounce && $WAN2Status = "up") do={
             :set WAN2Status "down"
             :log error "[MONITOR] Claro DOWN"
-            :if ($EmailEnable = true) do={
-                :do { /tool e-mail send to=$EmailTo subject="[DualWAN] Claro DOWN" body="Claro caiu. Trafego redirecionado para Vivo." } on-error={}
+            :if ($emailOk) do={
+                :do { /tool e-mail send to=$emailTo subject="[DualWAN] Claro DOWN" body="Claro caiu. Trafego redirecionado para Vivo." } on-error={}
             }
         }
     } else={
@@ -431,15 +432,12 @@ add name=isp-monitor interval=1m start-time=startup on-event={
         :if ($WAN2UpCount = $debounce && $WAN2Status = "down") do={
             :set WAN2Status "up"
             :log info "[MONITOR] Claro RECOVERED"
-            :if ($EmailEnable = true) do={
-                :do { /tool e-mail send to=$EmailTo subject="[DualWAN] Claro voltou" body="Claro voltou ao normal." } on-error={}
+            :if ($emailOk) do={
+                :do { /tool e-mail send to=$emailTo subject="[DualWAN] Claro voltou" body="Claro voltou ao normal." } on-error={}
             }
         }
     }
 }
-
-:global EmailEnable $lEmailEnable
-:global EmailTo $lEmailAddress
 
 # ==============================================================================
 # [OPCIONAL] MONITOR DE MEMORIA
