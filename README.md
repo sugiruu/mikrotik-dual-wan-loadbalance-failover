@@ -2,7 +2,7 @@
 
 > Esse é meu setup pessoal de rede. Tá tudo rodando na minha casa, mas foi feito pras minhas necessidades, não é um projeto genérico plug-and-play. Se quiser usar como base pro seu, fica à vontade. Copia, adapta, quebra, conserta. É assim que se aprende.
 
-Scripts pra RouterOS v7: dual WAN com load balancing ECMP + FastTrack, failover automático, VPN WireGuard com full tunnel, Pi-Hole como DNS, DHCP estático com hostnames `.lan`, traffic steering por dispositivo e hardening de segurança.
+Scripts pra RouterOS v7: dual WAN com load balancing ECMP + FastTrack, failover automático, VPN WireGuard com full tunnel, Pi-Hole como DNS, DHCP estático com hostnames `.internal`, traffic steering por dispositivo e hardening de segurança.
 
 Rodando com **Vivo (PPPoE) + Claro (DHCP/CGNAT)** num hEX S (RB760iGS).
 
@@ -13,7 +13,7 @@ Rodando com **Vivo (PPPoE) + Claro (DHCP/CGNAT)** num hEX S (RB760iGS).
 - **Failover automático**: se um ISP cair, o tráfego migra pro outro em ~10 segundos
 - **WireGuard VPN**: acesso remoto à rede de casa de qualquer lugar, com full tunnel e DDNS
 - **Pi-Hole DNS**: DHCP entrega o Pi-Hole como DNS primário, com fallback pra Cloudflare
-- **DHCP estático + hostnames**: IPs fixos por MAC e nomes `.lan` (ex: `ping meupc.lan`)
+- **DHCP estático + hostnames**: IPs fixos por MAC e nomes `.internal` (ex: `ping meupc.internal`)
 - **Traffic steering**: força dispositivos específicos a usar um ISP, com fallback pro outro
 - **Firewall + hardening**: bloqueia acesso externo, rate limit de SYN/ICMP, anti-spoofing, serviços desnecessários desabilitados
 - **PPPoE e DHCP**: scripts auxiliares pra Vivo (PPPoE/bridge) e Claro (DHCP/CGNAT)
@@ -91,7 +91,7 @@ O script principal tem seções marcadas com `[OPCIONAL]` que você pode remover
 | Seção | O que faz | Quando remover |
 |-------|-----------|----------------|
 | DHCP Leases Estáticos | IPs fixos por MAC | Não precisa de IP fixo |
-| DNS Hostnames | Nomes `.lan` | Não quer acessar dispositivos por nome |
+| DNS Hostnames | Nomes `.internal` | Não quer acessar dispositivos por nome |
 | Traffic Steering | Força dispositivo pra um ISP | Não precisa direcionar tráfego |
 | Email | Alertas de queda/retorno por email | Não quer notificações |
 | Monitor de ISP | Log de estado dos ISPs | Não quer monitoramento |

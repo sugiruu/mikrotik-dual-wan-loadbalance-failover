@@ -198,7 +198,7 @@ add name=lan-dhcp interface=$lLANInterface address-pool=lan-dhcp-pool disabled=n
 /ip dhcp-server network
 :do { remove [find address=$lLANSubnet] } on-error={}
 :local lDHCPDNS ($lPiHoleAddress . ",1.1.1.1")
-add address=$lLANSubnet gateway=$lLANGateway dns-server=$lDHCPDNS domain="lan" comment="LAN Network"
+add address=$lLANSubnet gateway=$lLANGateway dns-server=$lDHCPDNS domain="internal" comment="LAN Network"
 
 # ==============================================================================
 # [OPCIONAL] DHCP LEASES ESTATICOS
@@ -224,14 +224,14 @@ set servers=$lDNSServers allow-remote-requests=yes cache-size=32768KiB cache-max
 # ==============================================================================
 # [OPCIONAL] DNS HOSTNAMES
 # ==============================================================================
-# Nomes .lan para acessar dispositivos na rede local (ex: ping raspberrypi.lan).
+# Nomes .internal para acessar dispositivos na rede local (ex: ping raspberrypi.internal).
 # Remova esta secao se nao precisa.
 /ip dns static
 :do { remove [find where comment~"LAN:"] } on-error={}
-add name="raspberrypi.lan" address=$lPiHoleAddress comment="LAN: Pi-Hole"
-add name="desktopnix.lan" address=$lDesktopIP comment="LAN: Desktop"
-add name="archerap.lan" address=$lArcherIP comment="LAN: ArcherAX10"
-add name="clarotvbox.lan" address=$lClaroTVIP comment="LAN: Claro TV Box"
+add name="raspberrypi.internal" address=$lPiHoleAddress comment="LAN: Pi-Hole"
+add name="desktopnix.internal" address=$lDesktopIP comment="LAN: Desktop"
+add name="archerap.internal" address=$lArcherIP comment="LAN: ArcherAX10"
+add name="clarotvbox.internal" address=$lClaroTVIP comment="LAN: Claro TV Box"
 
 # ==============================================================================
 # [OPCIONAL] TRAFFIC STEERING

@@ -53,7 +53,7 @@
             }
         }
         :set hostName $clean
-        :local fqdn ($hostName . ".lan")
+        :local fqdn ($hostName . ".internal")
         :do { /ip dns static remove [find where comment=$token] } on-error={}
         :if ([:len [/ip dns static find where name=$fqdn and comment~"LAN:"]] = 0) do={
             /ip dns static add name=$fqdn address=$leaseActIP ttl=00:15:00 comment=$token
