@@ -218,6 +218,40 @@ Cada dispositivo usa um IP diferente: celular = `.2`, notebook = `.3`, etc.
 
 Pra remover: `/import scripts/wireguard-rollback.rsc`
 
+## Let's Encrypt SSL
+
+Certificado HTTPS gratuito via ACME direto no MikroTik. Usa o DDNS do IP Cloud como domínio. Útil pra HTTPS no WebFig e pra exportar o certificado pro seu servidor na LAN.
+
+```
+/import scripts/letsencrypt-setup.rsc
+```
+
+O script:
+1. Habilita DDNS (IP Cloud)
+2. Abre porta 80 temporariamente pra validação HTTP-01
+3. Solicita certificado Let's Encrypt (aguarda ~3 minutos)
+4. Fecha porta 80
+5. Aplica no WebFig HTTPS
+6. Cria scripts no router: `letsencrypt-export` e `letsencrypt-renew`
+7. Cria scheduler diário que abre porta 80 quando faltam menos de 20 dias pra expirar
+
+### Exportar certificado (PEM)
+
+Pra usar o certificado num servidor na LAN (Nginx, Caddy, etc.):
+
+```
+/system script run letsencrypt-export
+```
+
+Gera dois arquivos em Files: `.crt` (certificado) e `.key` (chave privada, criptografada com passphrase `changeme`). Baixe via SCP ou Winbox.
+
+Pra descriptografar a chave:
+```bash
+openssl rsa -in cert_export_*.key -out key_decrypted.pem
+```
+
+Pra remover tudo: `/import scripts/letsencrypt-rollback.rsc`
+
 ## Regras bogon
 
 O firewall bloqueia IPs privados vindos da WAN (anti-spoofing). Se seu ISP entrega IP privado (ex: 192.168.x.x no modo roteador), desabilite a regra:
