@@ -62,6 +62,8 @@ Suba a pasta `scripts/` no router e importe o que precisar:
 | `scripts/vivo-dhcp-rollback.rsc` | Reverte Vivo pra DHCP | Quer voltar a Vivo pro modo roteador |
 | `scripts/claro-static-restore.rsc` | Configura IP estático na Claro | Claro em bridge não entrega IPv4 |
 | `scripts/claro-dhcp-rollback.rsc` | Remove estático e reativa DHCP | Quando o lease da Claro expirar |
+| `scripts/claro-sfp-swap.rsc` | Troca modem Claro em ether2 por SFP GPON stick em sfp1 | Tirar o modem do caminho |
+| `scripts/claro-sfp-swap-rollback.rsc` | Volta pro modem Claro em ether2 | Desfazer o swap do stick |
 | `scripts/dns-optimization.rsc` | Redireciona DNS pro Pi-Hole + bloqueia DoT | Quer forçar todo DNS pelo Pi-Hole |
 
 ## Verificação
@@ -118,6 +120,101 @@ Scripts auxiliares pros passos 3 e 4:
 
 **Solução 2: Clonar MAC**
 Clone o MAC da WAN do modem Claro na interface WAN do MikroTik antes de ativar bridge.
+
+### Claro via SFP GPON stick (sem modem)
+
+Se quiser tirar o modem Claro do caminho, dá pra plugar um SFP GPON stick direto na `sfp1` do MikroTik. Elimina equipamento, consumo e dependência de firmware Claro travado.
+
+Testado com **ODI DFP-34X-2C2** + **Claro + OLT ZTE**. Outros sticks podem funcionar, desde que suportem clonagem de GPON SN, Vendor ID e parâmetros OMCI.
+
+#### Pré-requisitos
+
+1. SFP GPON stick compatível com o OLT ZTE da Claro
+2. Anotar do modem Claro original (aba *Status > Device Info* + etiqueta física) — valores são só exemplos ilustrativos do formato, os seus vão ser diferentes:
+
+   | Campo | Formato / Exemplo fake |
+   |---|---|
+   | `GPON SN` | 4 ASCII (vendor) + 8 hex (serial), ex: `ZTEGAABBCCDD` |
+   | `Vendor ID` | 4 chars ASCII, ex: `ZTEG` |
+   | `Product Class` | modelo do modem, ex: `F6600P` |
+   | `HW Version` | ex: `V1.0.0` |
+   | `SW Version` | ex: `V1.2.3P4N5` |
+   | `Device Serial Number` | valor completo da UI do modem, ex: `AABBCC1234567890ABCDEF1234` |
+   | `ONT MAC` | da etiqueta, ex: `AA:BB:CC:DD:EE:FF` |
+   | `OUI` | primeiros 3 bytes do ONT MAC, ex: `AABBCC` |
+
+3. DHCP client da Claro ativo na ether2 antes do swap (estado normal)
+4. Acesso físico pra trocar cabos
+
+#### Passo 1: Configurar o stick
+
+1. Pluga o stick em `sfp1` **sem fibra**
+2. Pra link Ethernet subir sem sinal óptico, força `sfp-ignore-rx-los=yes`:
+
+```
+/interface ethernet set sfp1 sfp-ignore-rx-los=yes
+```
+
+3. Cria acesso temporário à UI do stick (`http://192.168.1.1`):
+
+```
+/ip address add address=192.168.1.10/24 interface=sfp1 comment="Access GPON stick (temp)"
+/ip firewall nat add chain=srcnat src-address=192.168.100.0/24 out-interface=sfp1 action=masquerade comment="NAT to GPON stick (temp)"
+```
+
+4. Abre `http://192.168.1.1` no browser e preenche os valores anotados. Tem 2 forms na página `gpon.asp`:
+   - Form superior: `GPON SN` (deixa LOID/PLOAM default)
+   - Form inferior: `Vendor ID`, `SW Version 1/2`, `Product Class`, `HW Version`, `Device Serial Number`, `MAC` (ONT MAC sem `:`, minúsculo), `OUI` (3 primeiros bytes do ONT MAC), `Fiber Reset: Disable`
+
+5. Salva cada form clicando no *Apply Changes* correspondente
+6. **CRÍTICO**: `Apply Changes` só persiste em RAM. Pra gravar em flash vai em `Admin > Commit/Reboot` e clica **Commit** (ou Save+Reboot). Sem esse passo, tudo some no próximo reboot do stick.
+
+> ⚠️ **Não plugue/desplugue a fibra 5 vezes seguidas** — o stick reseta pros defaults e você perde a config.
+
+#### Passo 2: Rodar o swap
+
+```
+/import scripts/claro-sfp-swap.rsc
+```
+
+O script clona o MAC da `ether2` no `sfp1` (preserva lease DHCP no OLT), move o DHCP client pro `sfp1`, atualiza a WAN interface-list e desabilita a `ether2`.
+
+#### Passo 3: Swap físico
+
+1. Desconecta o cabo copper do modem Claro da `ether2`
+2. Desconecta a fibra do modem Claro
+3. Conecta a fibra no SFP GPON stick (`sfp1`)
+4. Espera 30-60s pra autenticação GPON + DHCP
+
+#### Verificação
+
+```
+/interface ethernet monitor sfp1 once    # sfp-rx-loss: no, status: link-ok
+/ip dhcp-client print where name=client2 # status=bound
+/tool ping 1.1.1.1 interface=sfp1 count=3
+/ip route print where dst-address=0.0.0.0/0 and active
+```
+
+Pra confirmar que o stick autenticou no OLT, loga no `http://192.168.1.1` (se ainda tiver acesso temporário configurado) e checa em `Status > PON`. Status code **`05`** (O5) = registrado com sucesso.
+
+#### Rollback
+
+```
+/import scripts/claro-sfp-swap-rollback.rsc
+```
+
+E inverte os passos físicos (fibra de volta no modem, copper na ether2).
+
+#### Se DHCP não pegar lease em 2 min
+
+Provável VLAN no lado do OLT (varia por região; o deploy onde testamos é untagged). Tentar as comuns:
+
+```
+/interface vlan add interface=sfp1 vlan-id=10 name=vlan10-sfp1
+/ip dhcp-client set [find where name=client2] interface=vlan10-sfp1
+```
+
+VLANs comuns em Claro/ZTE: `10`, `20`, `100`. Se nada funcionar, rodar rollback e investigar o modem.
 
 ### Vivo em bridge (PPPoE)
 
