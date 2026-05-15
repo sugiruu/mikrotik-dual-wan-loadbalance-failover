@@ -83,11 +83,12 @@
 :do { /ipv6 firewall filter remove [find where chain=input] } on-error={}
 /ipv6 firewall filter add chain=input action=drop connection-state=invalid comment="Drop: Invalid Input"
 /ipv6 firewall filter add chain=input action=accept connection-state=established,related,untracked comment="Accept: Established Input"
-/ipv6 firewall filter add chain=input action=accept protocol=icmpv6 icmp-options=133:0,134:0,135:0,136:0,141:0,142:0 comment="Accept: NDP"
-/ipv6 firewall filter add chain=input action=accept protocol=icmpv6 icmp-options=130:0,131:0,132:0,143:0 comment="Accept: MLD"
-/ipv6 firewall filter add chain=input action=accept protocol=icmpv6 icmp-options=1:0-255,2:0,3:0-255,4:0-255 comment="Accept: ICMPv6 errors"
+# ICMPv6: rate-limit so echo-request (type 128). NDP/MLD/errors passam sem
+# limite — sao essenciais e podem ser muitos pacotes legitimos. Drop excess
+# echo-request apos o limit.
 /ipv6 firewall filter add chain=input action=accept protocol=icmpv6 icmp-options=128:0 limit=50,5:packet comment="Limit: ICMPv6 echo-request"
 /ipv6 firewall filter add chain=input action=drop protocol=icmpv6 icmp-options=128:0 comment="Drop: Excess ICMPv6 echo"
+/ipv6 firewall filter add chain=input action=accept protocol=icmpv6 comment="Accept: ICMPv6 (NDP/MLD/PTB/errors)"
 /ipv6 firewall filter add chain=input action=accept src-address=fe80::/10 comment="Accept: Link-local Source"
 /ipv6 firewall filter add chain=input action=accept in-interface=$lLanIf comment="Accept: LAN Input"
 /ipv6 firewall filter add chain=input action=accept protocol=udp dst-port=546 comment="Accept: DHCPv6 client"
