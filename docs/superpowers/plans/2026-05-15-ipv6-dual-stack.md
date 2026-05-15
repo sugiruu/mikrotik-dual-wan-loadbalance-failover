@@ -579,13 +579,13 @@ Expected: 2 regras srcnat masquerade (Vivo + Claro).
 
 Run:
 ```bash
-sshpass -p "$MK_PASS" ssh admin@192.168.100.1 ':put ([:len [/ipv6 firewall filter find where chain=input]] . " input rules"); :put ([:len [/ipv6 firewall filter find where chain=forward]] . " forward rules"); :put ([:len [/ipv6 firewall raw find]] . " raw rules")'
+sshpass -p "$MK_PASS" ssh admin@192.168.100.1 ':put ([:len [/ipv6 firewall filter find where chain=input and dynamic=no]] . " input rules"); :put ([:len [/ipv6 firewall filter find where chain=forward and dynamic=no]] . " forward rules"); :put ([:len [/ipv6 firewall raw find where dynamic=no]] . " raw rules")'
 ```
 
 Expected:
 - `9 input rules`
-- `6 forward rules`
-- `7 raw rules`
+- `6 forward rules` (non-dynamic; `/ipv6 firewall filter print` shows 7 total because FastTrack adds a dynamic dummy)
+- `9 raw rules` (non-dynamic; `/ipv6 firewall raw print` shows 10 total for the same reason)
 
 ---
 
@@ -693,7 +693,7 @@ sshpass -p "$MK_PASS" ssh admin@192.168.100.1 '/import ipv6-setup.rsc'
 
 Run:
 ```bash
-sshpass -p "$MK_PASS" ssh admin@192.168.100.1 ':put ([:len [/ipv6 firewall filter find where chain=input]] . " input rules")'
+sshpass -p "$MK_PASS" ssh admin@192.168.100.1 ':put ([:len [/ipv6 firewall filter find where chain=input and dynamic=no]] . " input rules")'
 ```
 
 Expected: `9 input rules` (estado IPv6 ON de volta).

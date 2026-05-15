@@ -20,8 +20,8 @@
 :do { /ipv6 firewall nat remove [find where comment~"NAT66"] } on-error={}
 
 # Firewall input + forward
-:do { /ipv6 firewall filter remove [find where chain=input] } on-error={}
-:do { /ipv6 firewall filter remove [find where chain=forward] } on-error={}
+:do { /ipv6 firewall filter remove [find where chain=input and dynamic=no] } on-error={}
+:do { /ipv6 firewall filter remove [find where chain=forward and dynamic=no] } on-error={}
 
 # Firewall raw (bogons + DoT + SYN rate-limit)
 :do { /ipv6 firewall raw remove [find where comment~"IPv6 bogon" or comment~"IPv6: Block DoT" or comment~"IPv6 SYN"] } on-error={}
