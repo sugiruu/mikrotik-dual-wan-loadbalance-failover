@@ -45,3 +45,12 @@
 /ipv6 dhcp-client add interface=$lVivoIf request=prefix add-default-route=yes default-route-distance=1 use-peer-dns=no pool-name=vivo-pd6 pool-prefix-length=64 comment="DHCPv6: Vivo PD"
 
 # Claro: SLAAC e default route automaticos via accept-RA whitelist (acima), nada a configurar.
+
+# --- 5. LAN: ULA + ND/RA ---
+# advertise=yes faz hosts LAN derivarem endereco SLAAC do prefixo /64.
+:do { /ipv6 address remove [find where comment~"IPv6: LAN ULA"] } on-error={}
+/ipv6 address add address=$lLanULA interface=$lLanIf advertise=yes comment="IPv6: LAN ULA"
+
+# SLAAC puro: managed=no other=no (sem DHCPv6 server na LAN).
+:do { /ipv6 nd remove [find where interface=$lLanIf and !default] } on-error={}
+/ipv6 nd add interface=$lLanIf advertise-mac-address=yes managed-address-configuration=no other-configuration=no comment="IPv6: LAN RA"
