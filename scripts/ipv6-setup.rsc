@@ -23,3 +23,8 @@
 
 # --- 1. Limpa regra do script principal que rejeita IPv6 forward ---
 :do { /ipv6 firewall filter remove [find where comment~"Reject: All IPv6 forward"] } on-error={}
+
+# --- 2. Stack IPv6 ---
+# accept-RA whitelist nas WANs (nao LAN — evita rogue RA injection).
+# forward=yes pra router rotear IPv6 entre interfaces.
+/ipv6 settings set disable-ipv6=no forward=yes disable-link-local-address=no accept-router-advertisements=yes accept-router-advertisements-on=($lClaroIf . "," . $lVivoIf)
