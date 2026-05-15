@@ -65,6 +65,8 @@ Suba a pasta `scripts/` no router e importe o que precisar:
 | `scripts/claro-sfp-swap.rsc` | Troca modem Claro em ether2 por SFP GPON stick em sfp1 | Tirar o modem do caminho |
 | `scripts/claro-sfp-swap-rollback.rsc` | Volta pro modem Claro em ether2 | Desfazer o swap do stick |
 | `scripts/dns-optimization.rsc` | Redireciona DNS pro Pi-Hole + bloqueia DoT | Quer forçar todo DNS pelo Pi-Hole |
+| `scripts/ipv6-setup.rsc` | Habilita IPv6 dual-stack com NAT66 nas duas WANs | Quer IPv6 na LAN (ver seção IPv6 abaixo) |
+| `scripts/ipv6-rollback.rsc` | Reverte tudo de IPv6 (volta `disable-ipv6=yes`) | Quer desfazer o IPv6 |
 
 ## Verificação
 
@@ -350,6 +352,28 @@ openssl rsa -in cert_export_*.key -out key_decrypted.pem
 ```
 
 Pra remover tudo: `/import scripts/letsencrypt-rollback.rsc`
+
+## IPv6 dual-stack (Vivo + Claro)
+
+Habilita IPv6 nas duas WANs com NAT66 (masquerade IPv6 → endereço global da WAN de saída). LAN recebe ULA `fd64:1e57:9364:1::/64` via SLAAC.
+
+```
+/import scripts/ipv6-setup.rsc
+```
+
+**O que cada ISP entrega:**
+- **Vivo**: DHCPv6-PD `/64` via PPPoE (sem IA_NA). O script faz carve-out de `::1` da PD pra dar global pro `pppoe-vivo` (necessário pro NAT66 ter source).
+- **Claro**: SLAAC público `/64` no `sfp1` (bloco `2804:14c:5ba0:1000::/64`).
+
+**Por que NAT66 em vez de ECMP IPv6 puro:** os BNGs das duas ISPs fazem uRPF strict. Em ECMP puro, o MikroTik pode escolher mandar tráfego com source da WAN A pela WAN B, e o BNG da WAN B dropa. NAT66 masquerade resolve: o tráfego sempre sai com o endereço da WAN de saída.
+
+**Failover:** funciona igual IPv4 — `check-gateway=ping` na default route. Conexões já estabelecidas pinned na WAN morta caem; novas conexões usam a WAN viva.
+
+**Gotcha do IPv6CP:** o PPPoE com a Vivo só negocia IPv6 se a stack IPv6 do MikroTik estiver ON na hora do `connect`. O script reconecta o `pppoe-vivo` (~10s offline) pra forçar isso.
+
+**Pré-requisito Pi-Hole:** desabilitar `filter-AAAA` em Pi-hole admin → Settings → All settings → DNS → "Additional dnsmasq lines". Senão hosts LAN não resolvem AAAA e IPv6 não é usado pra hostname.
+
+Pra reverter: `/import scripts/ipv6-rollback.rsc`
 
 ## Regras bogon
 
