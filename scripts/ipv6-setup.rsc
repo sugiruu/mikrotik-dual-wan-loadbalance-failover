@@ -95,3 +95,26 @@
 /ipv6 firewall filter add chain=forward action=accept src-address-list=LocalTraffic6 comment="Accept: LAN New Forward"
 /ipv6 firewall filter add chain=forward action=accept protocol=icmpv6 hop-limit=equal:1 comment="Accept: ICMPv6 link-local hops"
 /ipv6 firewall filter add chain=forward action=drop comment="Drop: All Other Forward"
+
+# --- 10. Firewall IPv6 raw (bogons + DoT block) ---
+# Espelho do raw IPv4: bogons na WAN (early-drop pre-conntrack) + block DoT da LAN.
+# fc00::/7 cobre todo ULA externo (LAN ULA vem por bridge-lan, nao por WAN).
+:do { /ipv6 firewall raw remove [find where comment~"IPv6 bogon" or comment~"IPv6: Block DoT"] } on-error={}
+/ipv6 firewall raw add chain=prerouting action=drop src-address=::/128 in-interface-list=WAN comment="IPv6 bogon: unspecified src from WAN"
+/ipv6 firewall raw add chain=prerouting action=drop src-address=fc00::/7 in-interface-list=WAN comment="IPv6 bogon: ULA from WAN"
+/ipv6 firewall raw add chain=prerouting action=drop src-address=::1/128 in-interface-list=WAN comment="IPv6 bogon: loopback from WAN"
+/ipv6 firewall raw add chain=prerouting action=drop src-address=ff00::/8 in-interface-list=WAN comment="IPv6 bogon: multicast as src from WAN"
+/ipv6 firewall raw add chain=prerouting action=drop src-address=2001:db8::/32 in-interface-list=WAN comment="IPv6 bogon: documentation range from WAN"
+/ipv6 firewall raw add chain=prerouting action=drop src-address=::ffff:0:0/96 in-interface-list=WAN comment="IPv6 bogon: IPv4-mapped from WAN"
+/ipv6 firewall raw add chain=prerouting action=drop protocol=tcp dst-port=853 src-address-list=LocalTraffic6 comment="IPv6: Block DoT (force Pi-Hole)"
+
+:put ""
+:put "IPv6 configurado. Verificacao:"
+:put "  /ipv6 address print"
+:put "  /ipv6 route print where dst-address=\"::/0\""
+:put "  /ipv6 dhcp-client print"
+:put "  /tool ping 2606:4700:4700::1111 src-address=$lLanULA count=3"
+:put ""
+:put "Teste externo (de host LAN):"
+:put "  ping -6 ipv6.google.com"
+:put "  curl https://test-ipv6.com"
