@@ -43,9 +43,12 @@
     :delay 12s
 }
 
-# --- 4. DHCPv6 client Vivo (request=prefix) ---
+# --- 4. DHCPv6 client Vivo (request=address,prefix) ---
+# DHCPv6 client: pede IA_NA (WAN address) + IA_PD (prefix delegation).
+# IA_NA da o endereco global pra pppoe-vivo, usado como source pelo NAT66.
+# Se Vivo nao entregar IA_NA (so PD), o cliente ainda binds e PD funciona.
 :do { /ipv6 dhcp-client remove [find where comment~"DHCPv6: Vivo"] } on-error={}
-/ipv6 dhcp-client add interface=$lVivoIf request=prefix add-default-route=yes default-route-distance=1 use-peer-dns=no pool-name=vivo-pd6 pool-prefix-length=64 comment="DHCPv6: Vivo PD"
+/ipv6 dhcp-client add interface=$lVivoIf request=address,prefix add-default-route=yes default-route-distance=1 use-peer-dns=no pool-name=vivo-pd6 pool-prefix-length=64 comment="DHCPv6: Vivo PD"
 
 # Claro: SLAAC e default route automaticos via accept-RA=all (acima), nada a configurar.
 
@@ -80,7 +83,7 @@
 #   - ICMPv6 nao pode rate-limitar inteiro (NDP/MLD essenciais); rate-limit so echo-request
 #   - Accept link-local source (fe80::/10) necessario pra NDP
 #   - Accept DHCPv6 client reply (UDP 546) pra receber PD da Vivo
-:do { /ipv6 firewall filter remove [find where chain=input] } on-error={}
+:do { /ipv6 firewall filter remove [find where chain=input and dynamic=no] } on-error={}
 /ipv6 firewall filter add chain=input action=drop connection-state=invalid comment="Drop: Invalid Input"
 /ipv6 firewall filter add chain=input action=accept connection-state=established,related,untracked comment="Accept: Established Input"
 # ICMPv6: rate-limit so echo-request (type 128). NDP/MLD/errors passam sem
@@ -99,7 +102,7 @@
 # Drop invalid logo depois pra rejeitar conns malformadas que escaparam FastTrack.
 # remove [find where chain=forward] tambem remove a regra "Reject: All IPv6 forward"
 # do script principal — substituida pelas regras abaixo (drop default no fim cobre).
-:do { /ipv6 firewall filter remove [find where chain=forward] } on-error={}
+:do { /ipv6 firewall filter remove [find where chain=forward and dynamic=no] } on-error={}
 /ipv6 firewall filter add chain=forward action=fasttrack-connection connection-state=established,related comment="FastTrack: Established/Related"
 /ipv6 firewall filter add chain=forward action=drop connection-state=invalid comment="Drop: Invalid Forward"
 /ipv6 firewall filter add chain=forward action=accept connection-state=established,related,untracked comment="Accept: Established Forward"
