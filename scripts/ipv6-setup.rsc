@@ -54,3 +54,7 @@
 # SLAAC puro: managed=no other=no (sem DHCPv6 server na LAN).
 :do { /ipv6 nd remove [find where interface=$lLanIf and !default] } on-error={}
 /ipv6 nd add interface=$lLanIf advertise-mac-address=yes managed-address-configuration=no other-configuration=no comment="IPv6: LAN RA"
+
+# --- 6. Address-list LocalTraffic6 (espelho IPv4 LocalTraffic) ---
+:do { /ipv6 firewall address-list remove [find where list="LocalTraffic6"] } on-error={}
+/ipv6 firewall address-list add list=LocalTraffic6 address=$lLanULAPrefix comment="LAN ULA"
