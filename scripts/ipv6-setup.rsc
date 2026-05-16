@@ -75,6 +75,13 @@
 :do { /ipv6 firewall address-list remove [find where list="LocalTraffic6"] } on-error={}
 /ipv6 firewall address-list add list=LocalTraffic6 address=$lLanULAPrefix comment="LAN ULA"
 
+# --- 6b. MSS clamp v6 pra pppoe-vivo (PMTU black hole no PPPoE 1492) ---
+# clamp-to-pmtu calcula MSS=1432 automaticamente (1492-40-20). Aplica nos 2 sentidos.
+# Espelha o clamp IPv4 que vive em scripts/vivo-pppoe.rsc.
+:do { /ipv6 firewall mangle remove [find where comment~"MSS clamp v6: Vivo PPPoE"] } on-error={}
+/ipv6 firewall mangle add chain=forward action=change-mss new-mss=clamp-to-pmtu passthrough=yes protocol=tcp tcp-flags=syn out-interface=$lVivoIf comment="MSS clamp v6: Vivo PPPoE out"
+/ipv6 firewall mangle add chain=forward action=change-mss new-mss=clamp-to-pmtu passthrough=yes protocol=tcp tcp-flags=syn in-interface=$lVivoIf comment="MSS clamp v6: Vivo PPPoE in"
+
 # --- 7. NAT66 masquerade nas duas WANs ---
 # Conntrack mantem cada conexao pinned na WAN escolhida pelo ECMP hash.
 # Resolve uRPF: pacote sai com src=address da WAN de saida, nunca cross-WAN.

@@ -30,6 +30,12 @@
 # Habilita regra bogon 192.168 (PPPoE usa IP publico, nao precisa mais permitir IP privado na WAN)
 :do { /ip firewall raw enable [find where comment~"192.168"] } on-error={}
 
+# MSS clamp pro PPPoE (MTU 1492 < 1500 Ethernet → PMTU black hole no primeiro request).
+# clamp-to-pmtu calcula MSS automaticamente: 1492-40-20 = 1432 (v4). Aplica nos dois sentidos.
+:do { /ip firewall mangle remove [find where comment~"MSS clamp: Vivo PPPoE"] } on-error={}
+/ip firewall mangle add chain=forward action=change-mss new-mss=clamp-to-pmtu passthrough=yes protocol=tcp tcp-flags=syn out-interface=pppoe-vivo comment="MSS clamp: Vivo PPPoE out"
+/ip firewall mangle add chain=forward action=change-mss new-mss=clamp-to-pmtu passthrough=yes protocol=tcp tcp-flags=syn in-interface=pppoe-vivo comment="MSS clamp: Vivo PPPoE in"
+
 # Troca interface na WAN list
 :do { /interface list member remove [find where comment~"WAN1"] } on-error={}
 :do { /interface list member remove [find where interface=ether1 and list=WAN] } on-error={}

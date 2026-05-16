@@ -17,6 +17,9 @@
 # Address-list
 :do { /ipv6 firewall address-list remove [find where list="LocalTraffic6"] } on-error={}
 
+# MSS clamp v6
+:do { /ipv6 firewall mangle remove [find where comment~"MSS clamp v6: Vivo PPPoE"] } on-error={}
+
 # NAT66
 :do { /ipv6 firewall nat remove [find where comment~"NAT66"] } on-error={}
 
